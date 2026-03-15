@@ -1,0 +1,55 @@
+RESUME 4 — TEST CONDITION: NON-STANDARD SECTION HEADINGS
+Expected behaviour: Section Review screen APPEARS. AI may flag sections as missing because headings
+                    don't match standard names. Tests the "Map My Sections" (🔀) path.
+                    Headings used: "About Me", "Background", "What I Know", "My Toolkit", "Where I've Been"
+Pair with: JD-B (Data Engineer)
+================================================================================
+
+Jordan Taylor
+jordan.taylor@outlook.com | 503.771.2284 | Portland, OR
+
+ABOUT ME
+I'm a software engineer turned data specialist with 7 years of experience building data infrastructure at startups and scale-ups. I've spent most of my career in the Pacific Northwest tech scene, working on everything from scrappy early-stage pipelines to production systems processing tens of millions of daily events. I'm most energised by complex data modelling problems and building systems that are actually maintainable by the humans who come after me.
+
+WHAT I KNOW
+Stream processing, batch ETL and ELT design, data warehouse modelling (Kimball and Data Vault), cloud data infrastructure, pipeline observability and alerting, data governance frameworks, performance tuning, agile delivery, technical documentation, cross-functional data literacy enablement
+
+MY TOOLKIT
+Python (pandas, PySpark, SQLAlchemy), SQL (advanced), Apache Spark, Kafka, Airflow, dbt, Snowflake, Databricks, AWS (S3, Glue, EMR, Lambda, Step Functions), GCP (BigQuery, Dataflow, Pub/Sub), Terraform, Docker, Kubernetes, Grafana, Monte Carlo, Atlan, Git, GitHub Actions
+
+WHERE I'VE BEEN
+
+Cascade Data — Portland, OR
+Cascade Data is a venture-backed analytics platform company serving e-commerce and retail clients across North America.
+
+Staff Data Engineer | February 2021 – Present
+Technical lead for a 6-person data engineering squad responsible for the company's entire data platform, supporting 180 plus daily active analysts and a 280 million row production data warehouse.
+- Designed and implemented a medallion lakehouse architecture on AWS (S3 plus Delta Lake plus Databricks), replacing a brittle single-layer warehouse and reducing ad hoc pipeline failures by 82 percent
+- Built a real-time inventory availability pipeline using Kafka and Spark Structured Streaming that reduced out-of-stock alert latency from T+4 hours to T+90 seconds for 12 retail clients
+- Established a data contract framework across 4 upstream engineering teams, reducing data quality incidents from an average of 22 per month to 4 per month within 6 months of adoption
+- Drove the consolidation of 3 separate BI tools (Looker, Mode, Tableau) into a single governed Looker environment, saving the analytics team 16 hours per week in tool-switching and maintenance overhead
+
+Data Engineer | March 2018 – January 2021
+Core member of the founding data team at a 40-person e-commerce analytics startup.
+- Architected the company's first production data warehouse in BigQuery, ingesting data from 11 sources including Shopify, Google Ads, Facebook Ads, and Klaviyo
+- Built and maintained 60 plus dbt models used daily by the entire analytics and product teams
+- Reduced monthly cloud infrastructure costs by 34 percent through query optimisation and partition pruning across high-cardinality tables
+
+Waveform Analytics — Seattle, WA
+Waveform Analytics is a data consultancy specialising in marketing attribution and customer data platforms for DTC brands.
+
+Data Consultant | June 2016 – February 2018
+Delivered data infrastructure and analytics projects for 8 DTC clients across apparel, beauty, and food verticals.
+- Designed multi-touch attribution models for 3 clients with combined digital ad spend of 14 million dollars per year, giving clients their first cross-channel ROI visibility
+- Built automated weekly reporting pipelines in Airflow that replaced 22 hours per week of manual Excel reporting across the client portfolio
+
+MY EDUCATION
+Bachelor of Science, Applied Mathematics
+Oregon State University — June 2016
+Minor in Computer Science
+
+WHERE I'VE BEEN RECOGNISED
+Cascade Data Engineering Excellence Award — Q2 2023
+Speaker — DataEngConf Portland: "Data Contracts Are a People Problem" — 2023
+Databricks Certified Associate Developer for Apache Spark — 2022
+AWS Certified Solutions Architect — Associate — 2020

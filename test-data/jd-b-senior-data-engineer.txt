@@ -1,0 +1,49 @@
+JD-B — Senior Data Engineer
+Company: Verano Health
+Use with: Resume 3 (missing Summary + Skills), Resume 4 (non-standard headings)
+================================================================================
+
+Verano Health — Senior Data Engineer
+
+About Verano Health
+Verano Health is a digital health company building the infrastructure layer for value-based care. We partner with health systems, payers, and provider groups to turn fragmented clinical, claims, and operational data into actionable intelligence. Our platform ingests and harmonises data from more than 80 source systems and serves 140 million patient records in production.
+
+We are a Series B company of 180 people, headquartered in Boston with a distributed engineering team. We are backed by leading healthcare-focused venture funds and have been named a KLAS Emerging Company to Watch two years in a row.
+
+The Role
+We are hiring a Senior Data Engineer to join our platform data team. You will own the design, build, and operation of data pipelines that power our core clinical intelligence product. This is an individual contributor role with a clear path to Staff Engineer.
+
+Principal Duties
+- Design, build, and maintain production-grade ELT pipelines ingesting data from clinical (HL7 FHIR, HL7 v2), claims (EDI 837/835), and operational source systems into our Snowflake data warehouse
+- Own the dbt project: write, review, and optimise data models across bronze, silver, and gold layers following our medallion architecture
+- Build and maintain orchestration workflows in Apache Airflow, including robust error handling, alerting, and dead-letter queue management
+- Partner with analytics engineers and clinical data scientists to design dimensional models that are performant, documented, and understandable by non-engineers
+- Lead the implementation of data quality monitoring using Great Expectations or Monte Carlo, establishing SLAs and incident response playbooks
+- Contribute to infrastructure-as-code practices using Terraform for our AWS-based data infrastructure
+- Mentor junior and mid-level data engineers through code review, architecture review, and technical guidance
+
+Required Qualifications
+- 5 or more years of data engineering experience, including at least 2 years in a senior or lead capacity
+- Expert-level SQL and strong Python for data engineering workloads (not software engineering)
+- Production experience with dbt and Airflow in a team setting
+- Strong understanding of cloud data warehouse architecture, specifically Snowflake
+- Hands-on experience with AWS data services: S3, Glue, Lambda, and Redshift or equivalent
+- Experience designing dimensional models (star schema, Data Vault, or medallion architecture)
+- Demonstrated ability to reduce pipeline failure rates and improve data reliability at scale
+- Strong written communication — able to produce clear technical documentation and architecture decision records
+
+Preferred Qualifications
+- Experience with healthcare data standards: HL7 FHIR, HL7 v2, CDA, EDI 837/835
+- Experience with real-time or near-real-time streaming pipelines using Kafka or Kinesis
+- Familiarity with data contract frameworks and upstream/downstream data governance
+- Experience with Databricks or Apache Spark for large-scale processing
+- dbt Certified Developer or equivalent certification
+- AWS Certified Data Analytics or equivalent cloud certification
+
+Compensation and Benefits
+- Base salary: 155,000 to 185,000 dollars
+- Equity participation in a high-growth Series B company
+- 100 percent employer-paid medical, dental, and vision
+- 3,500 dollar annual professional development stipend
+- Fully remote with quarterly in-person team weeks in Boston
+- Unlimited PTO with a 15-day minimum use policy

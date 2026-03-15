@@ -1,0 +1,72 @@
+RESUME 1 — TEST CONDITION: ALL 11 SECTIONS PRESENT
+Expected behaviour: Section Review screen is SKIPPED entirely. Proceeds directly to Processing.
+Pair with: JD-A (Senior Product Manager)
+================================================================================
+
+Sarah Chen
+sarah.chen@email.com | +1 (415) 882-4471 | San Francisco, CA | linkedin.com/in/sarahchen
+
+PROFESSIONAL SUMMARY
+Results-driven Senior Product Manager with 9 years of experience leading cross-functional teams to deliver enterprise SaaS products from concept to scale. Proven track record of growing product-led revenue by aligning roadmap decisions to customer data, market signals, and business outcomes. Passionate about building 0-to-1 products and scaling them to 100 million dollar ARR milestones.
+
+SKILLS / CORE COMPETENCIES
+Product Strategy, Roadmap Development, Agile and Scrum Methodologies, Stakeholder Management, OKR Frameworks, Customer Discovery, Competitive Analysis, Go-to-Market Planning, Data-Driven Decision Making, Cross-Functional Leadership, A/B Testing, Prioritisation Frameworks (RICE, MoSCoW)
+
+TOOLS & TECHNOLOGIES
+Jira, Confluence, Figma, Mixpanel, Amplitude, Tableau, Salesforce, Intercom, Notion, SQL (intermediate), Looker, ProductBoard, Miro
+
+WORK EXPERIENCE
+
+Luminary Software — San Francisco, CA
+Luminary Software is a Series C enterprise SaaS company providing AI-powered workflow automation tools to mid-market and enterprise clients across financial services and healthcare.
+
+Senior Product Manager | January 2021 – Present
+Led the product strategy and roadmap for Luminary's core automation platform, serving 400 plus enterprise clients and generating 42 million dollars in annual recurring revenue.
+- Defined and executed a 3-year product roadmap in partnership with CTO and VP Engineering, reducing time-to-value for new enterprise clients from 90 days to 34 days through onboarding workflow redesign
+- Launched an AI-assisted rule engine that increased automation coverage by 38 percent across the customer base, directly contributing to a 22 percent reduction in customer support ticket volume
+- Led a cross-functional squad of 14 (engineering, design, data science, QA) through two major platform releases, delivering both on time and under budget across 6 consecutive quarters
+- Partnered with Sales and Customer Success to develop a self-serve upgrade pathway that drove 2.1 million dollars in net new expansion ARR within 12 months of launch
+- Implemented a quarterly customer advisory board process across 15 enterprise accounts, feeding directly into prioritisation decisions and reducing churn risk by identifying 3 high-severity product gaps before renewal cycles
+
+Product Manager | June 2018 – December 2020
+Owned the integrations product surface across 40 plus third-party connectors including Salesforce, ServiceNow, and Workday.
+- Rebuilt the integrations framework from a bespoke per-connector model to a reusable API-first architecture, reducing new connector delivery time from 8 weeks to 11 days
+- Grew the integrations catalogue from 12 to 47 connectors in 18 months, directly enabling 6 enterprise deals totalling 4.7 million dollars in new ACV
+- Collaborated with UX and engineering to redesign the connector configuration UI, reducing implementation error rates by 61 percent based on support ticket analysis
+
+Vertex Digital — Austin, TX
+Vertex Digital is a boutique digital product consultancy serving venture-backed startups and Fortune 500 innovation teams.
+
+Associate Product Manager | August 2015 – May 2018
+Embedded with 6 client product teams across fintech, edtech, and e-commerce verticals.
+- Co-led discovery and delivery on a mobile payments feature for a Series B fintech client, which became the highest-rated feature in user research within 60 days of launch
+- Ran 200 plus user interviews and usability tests across 3 client engagements, producing insight decks that directly influenced roadmap decisions and investor narratives
+- Facilitated sprint planning, retrospectives, and stakeholder reviews across concurrent client projects, maintaining an average client satisfaction score of 4.8 out of 5.0
+
+EDUCATION
+Bachelor of Science, Information Systems
+University of Texas at Austin — May 2015
+GPA: 3.7 / 4.0 — Dean's List (4 semesters)
+
+CERTIFICATIONS & LICENCES
+Certified Scrum Product Owner (CSPO) — Scrum Alliance, 2019
+AWS Certified Cloud Practitioner — Amazon Web Services, 2022
+Product Management Certificate — Pragmatic Institute, 2020
+
+ACHIEVEMENTS & AWARDS
+ProductCon Speaker — "Building Roadmaps That Survive Contact With Sales" — 2023
+Luminary Software Product MVP Award — Q3 2022
+Forbes 30 Under 30 — Technology — 2021
+
+PUBLICATIONS & PRESENTATIONS
+"From Feature Factory to Outcome Machine: A PM's Framework for OKR Alignment" — ProductTalk, March 2023
+"Why Your Integration Strategy Is Your Competitive Moat" — Minds Matter Conference, October 2022
+
+VOLUNTEER WORK & COMMUNITY
+Product Mentor — Out in Tech, 2020–Present. Mentoring 4 LGBTQ+ professionals transitioning into product management roles.
+Board Member — SF Product Collective, 2021–Present. Co-organising monthly speaker series with 800 plus members.
+
+LANGUAGES
+English — Native
+Mandarin Chinese — Professional Working Proficiency
+Spanish — Conversational

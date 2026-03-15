@@ -1,0 +1,46 @@
+JD-A — Senior Product Manager
+Company: Helix Systems
+Use with: Resume 1 (expect high score 75–90%), Resume 2 (missing summary)
+================================================================================
+
+Helix Systems — Senior Product Manager, Platform
+
+About Helix Systems
+Helix Systems is a rapidly growing Series C enterprise SaaS company headquartered in San Francisco. We build AI-powered operational intelligence software used by more than 600 enterprise clients across financial services, insurance, and healthcare. Our platform processes over 4 billion data events per month and our team of 320 people is on a mission to make complex business operations effortlessly intelligent.
+
+We recently closed a 95 million dollar Series C and are expanding our product organisation to support our next phase of growth.
+
+The Role
+We are looking for a Senior Product Manager to own the strategy and execution for Helix's core platform — the shared infrastructure layer that underpins all of our product lines. This is a high-impact, high-visibility role that will work closely with our CTO, VP of Engineering, and the heads of our three vertical product lines.
+
+Principal Duties
+- Define and own the multi-year product vision and roadmap for the Helix platform, balancing technical infrastructure investment with customer-facing capabilities
+- Lead a cross-functional squad of 10 to 15 engineers, designers, and data scientists through quarterly planning cycles and weekly execution sprints
+- Drive alignment on roadmap priorities across three internal product teams and senior leadership, using structured frameworks such as RICE and OKR-based goal setting
+- Own the platform's key product metrics: time-to-value for new enterprise clients, platform reliability, API adoption, and developer experience scores
+- Lead customer discovery with enterprise accounts, including executive business reviews and joint roadmap sessions with strategic customers
+- Partner with Sales, Customer Success, and Solutions Engineering on complex enterprise deals where platform capabilities are a key evaluation criterion
+- Define and ship self-serve and API-first capabilities that enable Helix's partner ecosystem to build on top of the platform
+
+Required Qualifications
+- 7 or more years of product management experience, with at least 4 years in a senior or lead PM role at a B2B SaaS company
+- Demonstrated experience owning a platform or infrastructure product surface
+- Strong track record of delivering complex, multi-stakeholder roadmaps on time
+- Fluency with data-driven prioritisation frameworks (RICE, MoSCoW, OKR alignment)
+- Experience leading cross-functional teams of 10 or more through full product development cycles
+- Excellent executive communication skills — able to present confidently to C-level stakeholders and enterprise clients
+- Deep understanding of enterprise sales cycles and how product decisions affect win rates and expansion revenue
+
+Preferred Qualifications
+- Experience at a company that has scaled from Series B to Series D or beyond
+- Familiarity with API product development and developer experience (DX) best practices
+- Experience with AI or ML-powered product features
+- Exposure to financial services, insurance, or healthcare verticals
+- MBA or equivalent advanced degree
+
+What We Offer
+- Competitive base salary: 180,000 to 220,000 dollars plus equity
+- Comprehensive health, dental, and vision benefits
+- 4,000 dollar annual learning and development budget
+- Flexible hybrid work from our San Francisco HQ
+- 20 days PTO plus 10 company holidays

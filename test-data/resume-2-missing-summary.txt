@@ -1,0 +1,50 @@
+RESUME 2 — TEST CONDITION: PROFESSIONAL SUMMARY MISSING (REQUIRED)
+Expected behaviour: Section Review screen APPEARS. "Professional Summary / Objective" shows red MISSING badge.
+Pair with: JD-A (Senior Product Manager)
+================================================================================
+
+Marcus Williams
+marcus.williams@protonmail.com | (312) 554-8820 | Chicago, IL
+
+SKILLS / CORE COMPETENCIES
+Enterprise Sales, B2B SaaS, Account Management, Pipeline Development, Salesforce CRM, Forecasting, Contract Negotiation, Customer Success Handoff, Territory Planning, Outbound Prospecting, Multi-threading, Executive Presentations
+
+TOOLS & TECHNOLOGIES
+Salesforce, HubSpot, Outreach, LinkedIn Sales Navigator, Gong, Clari, Slack, Google Workspace, ZoomInfo, Docusign
+
+WORK EXPERIENCE
+
+Meridian Analytics — Chicago, IL
+Meridian Analytics is a growth-stage B2B SaaS company providing revenue intelligence and forecasting software to mid-market sales organisations.
+
+Senior Account Executive | March 2021 – Present
+Owned a 1.8 million dollar annual quota across a named account territory of 60 mid-market accounts in the Midwest region.
+- Exceeded annual quota by 118 percent in FY2022 and 124 percent in FY2023 by building a systematic outbound engine targeting VP-level and C-suite buyers
+- Closed 3 enterprise deals above 200,000 dollars ACV including Meridian's largest single-year deal at 340,000 dollars, secured through a 6-month multi-threaded sales cycle
+- Reduced average sales cycle length from 97 days to 61 days by implementing a mutual action plan framework adopted across the entire AE team
+- Partnered with Customer Success and Solution Engineering on complex technical evaluations, maintaining a 71 percent technical win rate across 28 POC engagements
+
+Account Executive | January 2019 – February 2021
+Managed a mixed inbound and outbound territory covering 120 SMB and lower mid-market accounts.
+- Grew territory ARR from 420,000 dollars to 1.1 million dollars over 26 months through expansion selling into existing accounts and net new logo acquisition
+- Ranked number 1 on the AE team for expansion ARR in Q3 2020 by developing a quarterly business review playbook adopted by 4 additional team members
+
+Greenfield Partners — New York, NY
+Greenfield Partners is a Series A-funded sales development platform helping B2B companies build and scale outbound SDR teams.
+
+Business Development Representative | June 2017 – December 2018
+Generated top-of-funnel pipeline for a 12-person enterprise sales team targeting Director-level and above buyers at companies with 500 to 5,000 employees.
+- Booked 67 qualified meetings in the first 12 months, ranking 2nd out of 8 BDRs on the team
+- Developed a cold email sequence framework that increased reply rates from 3.2 percent to 8.7 percent, later adopted as the company's standard outbound template
+
+EDUCATION
+Bachelor of Business Administration, Marketing
+DePaul University, Chicago — May 2017
+
+CERTIFICATIONS & LICENCES
+Salesforce Certified Administrator — 2020
+MEDDIC Sales Methodology Certification — 2021
+
+ACHIEVEMENTS & AWARDS
+Meridian Analytics President's Club — FY2022, FY2023
+Greenfield Partners BDR of the Quarter — Q4 2018

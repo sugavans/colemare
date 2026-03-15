@@ -1,0 +1,40 @@
+RESUME 5 — TEST CONDITION: 3 REQUIRED SECTIONS MISSING (Summary, Skills, Education)
+Expected behaviour: Section Review shows 3 red MISSING badges. High-urgency tone.
+                    Tests that all 3 appear correctly in the "Add Missing Sections" form.
+                    Also tests "Proceed Without Changes" double-confirmation flow.
+Pair with: JD-C (Marketing Manager)
+================================================================================
+
+Alex Rivera
+alex.rivera.mktg@gmail.com | (212) 408-7733 | New York, NY
+
+WORK EXPERIENCE
+
+Bloom Digital Agency — New York, NY
+Bloom Digital is a performance marketing agency serving DTC and e-commerce brands with combined client ad spend of 80 million dollars per year.
+
+Senior Performance Marketing Manager | April 2022 – Present
+Managed paid media strategy and execution across 8 DTC clients in beauty, wellness, and apparel with a combined monthly ad spend of 2.1 million dollars.
+- Scaled a beauty client's Meta advertising programme from 45,000 dollars per month to 280,000 dollars per month while maintaining a blended ROAS above 3.8x, generating 12.4 million dollars in attributed revenue over 14 months
+- Rebuilt a struggling apparel client's Google Shopping campaigns using a Performance Max plus Standard Shopping hybrid structure, recovering a 34 percent ROAS decline within 6 weeks
+- Developed a creative testing framework across 3 clients that reduced cost per thumb-stop rate by 41 percent and cut creative iteration cycles from 3 weeks to 8 days
+- Presented monthly performance reports and strategic recommendations directly to founder and CMO-level stakeholders at 6 client organisations
+
+Performance Marketing Specialist | January 2020 – March 2022
+Managed paid social and search campaigns for a portfolio of 12 SMB e-commerce clients with budgets ranging from 5,000 to 80,000 dollars per month.
+- Improved average portfolio ROAS from 2.1x to 3.4x over 18 months by implementing structured creative testing protocols and audience segmentation frameworks
+- Launched and managed TikTok advertising for 4 clients during the platform's early DTC adoption phase, achieving CPMs 60 percent below Meta benchmarks in the first 6 months
+
+Demand Curve — Remote
+Demand Curve is a growth marketing education company that trains marketers at startups and growth-stage companies.
+
+Growth Marketing Analyst | June 2018 – December 2019
+Supported senior growth strategists on client growth audits and campaign builds for Series A and B startups.
+- Assisted in auditing 18 client growth programmes and producing actionable growth roadmaps
+- Built weekly reporting dashboards in Google Data Studio for 6 clients, reducing reporting preparation time by 8 hours per week
+
+CERTIFICATIONS & LICENCES
+Meta Blueprint Certified — Media Buying Professional — 2021
+Google Ads Certified — Search, Shopping, Performance Max — 2020
+TikTok for Business Certification — 2022
+HubSpot Marketing Software Certification — 2019

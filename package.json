@@ -1,0 +1,33 @@
+{
+  "name": "resume-optimizer",
+  "version": "1.2.0",
+  "description": "AI-Powered Resume Optimizer — aligns your resume to any job description using Claude",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run server\" \"npm run client\"",
+    "server": "node --watch server/server.js",
+    "client": "vite --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:naming": "node shared/fileNaming.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "cors": "^2.8.5",
+    "docx": "^8.5.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mammoth": "^1.7.2",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.4.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.4",
+    "vite": "^8.0.0"
+  }
+}

@@ -1,0 +1,49 @@
+RESUME 3 — TEST CONDITION: PROFESSIONAL SUMMARY + SKILLS BOTH MISSING (2 REQUIRED SECTIONS)
+Expected behaviour: Section Review screen APPEARS. Two red MISSING badges for Summary and Skills.
+                    "Add Missing Sections" form shows BOTH required fields at top.
+Pair with: JD-B (Data Engineer)
+================================================================================
+
+Priya Nair
+priya.nair@gmail.com | 617-203-9945 | Boston, MA | github.com/priyanair-data
+
+TOOLS & TECHNOLOGIES
+Python, SQL, Apache Spark, dbt, Airflow, Snowflake, BigQuery, AWS (S3, Glue, Lambda, Redshift), Terraform, Docker, Kubernetes, Kafka, Looker, Fivetran, Git, dbt Cloud
+
+WORK EXPERIENCE
+
+DataRoots Inc. — Boston, MA
+DataRoots is a Series B data infrastructure company that provides managed data pipeline and lakehouse solutions to healthcare and life sciences organisations.
+
+Senior Data Engineer | May 2022 – Present
+Designed, built, and maintained the company's core data platform supporting 14 enterprise clients and ingesting over 2 billion events per month.
+- Architected and delivered a real-time data ingestion pipeline using Apache Kafka and AWS Lambda that reduced data latency from 6 hours to under 4 minutes for 3 critical client dashboards
+- Re-platformed the company's legacy ETL system from a monolithic Talend stack to a modular dbt plus Airflow framework, reducing pipeline failure rates by 73 percent and cutting maintenance hours by 14 hours per week
+- Led the migration of 6 terabytes of client data from on-premise Oracle databases to Snowflake, completing the project 3 weeks ahead of schedule and under budget by 18 percent
+- Mentored 2 junior data engineers through weekly 1-to-1s and code review sessions, both of whom were promoted within 12 months
+
+Data Engineer | August 2020 – April 2022
+Built and maintained ELT pipelines for 8 client data warehousing projects across healthcare, retail, and logistics verticals.
+- Reduced query runtime on a high-traffic client analytics dashboard from 4.2 minutes to 8 seconds through dimensional modelling redesign and Snowflake clustering key optimisation
+- Implemented automated data quality checks using Great Expectations across 22 pipeline stages, catching 340 data quality incidents before they reached production reporting
+
+Clearstep Health — Cambridge, MA
+Clearstep Health is a digital health startup providing AI-powered patient triage and care navigation software.
+
+Junior Data Analyst | July 2018 – July 2020
+Supported the clinical data team in building reporting infrastructure and ad hoc analysis for the product and clinical operations teams.
+- Built 14 operational dashboards in Looker across patient engagement, clinical outcomes, and product usage metrics, reducing weekly manual reporting effort by 11 hours
+- Developed a SQL-based cohort analysis framework that enabled the clinical team to run self-serve retention analysis, replacing a 3-day manual Excel process
+
+EDUCATION
+Master of Science, Data Science
+Northeastern University, Boston — May 2018
+GPA: 3.85 / 4.0
+
+Bachelor of Engineering, Computer Science
+College of Engineering Pune, India — May 2016
+
+CERTIFICATIONS & LICENCES
+AWS Certified Data Analytics – Specialty — 2022
+dbt Certified Developer — 2023
+Google Professional Data Engineer — 2021
