@@ -93,6 +93,17 @@ function setupSSE(res) {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
+
+  // Heartbeat — sends a comment line every 15s to keep Railway/proxies
+  // from closing the connection during long Claude API calls.
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) res.write(': heartbeat\n\n');
+  }, 15000);
+
+  // Stop heartbeat when the connection closes
+  res.on('close', () => clearInterval(heartbeat));
+
+  return heartbeat;
 }
 
 const emit = (res, type, payload = {}) =>
