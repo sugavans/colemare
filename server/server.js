@@ -48,6 +48,6 @@ app.get('/health', (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`\n✅  Resume Optimizer API running at http://localhost:${PORT}`);
-  console.log(`   CORS origin: ${ALLOWED_ORIGIN}`);
+  console.log(`   CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
   console.log(`   Open your browser at http://localhost:3000\n`);
 });
