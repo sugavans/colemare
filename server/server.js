@@ -21,8 +21,17 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 const app = express();
 
-const ALLOWED_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
-app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }));
+// Support comma-separated origins: "http://localhost:3000,https://colemare.vercel.app"
+const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGIN || 'http://localhost:3000')
+  .split(',').map(o => o.trim());
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '5mb' }));
 
 // ── Serve generated output files for download ────────────────────────────────

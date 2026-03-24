@@ -18,6 +18,10 @@ const INITIAL_STEPS = {
   coverletter: { 1: 'pending', 2: 'pending', 3: 'pending' },
 };
 
+// In production (Vercel), VITE_API_URL points to the Railway backend.
+// In local dev, it's empty and Vite's proxy handles /api → localhost:3001.
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 /** Stream SSE from a POST endpoint, calling onEvent for each parsed event. */
 async function readSSE(url, body, onEvent) {
   const response = await fetch(url, {
@@ -92,7 +96,7 @@ export default function App() {
   // ─── Export helper ────────────────────────────────────────────────────────
   const runExport = useCallback(async (payload) => {
     try {
-      const res = await fetch('/api/export', {
+      const res = await fetch(`${API_BASE}/api/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -111,7 +115,7 @@ export default function App() {
     setSectionAdditions({});
 
     try {
-      const res  = await fetch('/api/scan', {
+      const res  = await fetch(`${API_BASE}/api/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeText: rt, jobDescription: jd }),
@@ -141,7 +145,7 @@ export default function App() {
     setSteps(prev => ({ ...prev, 1: 'complete', 2: 'complete' }));
 
     try {
-      await readSSE('/api/optimize', { resumeText: rt, jobDescription: jd, companyName, jobTitle, sectionAdditions: additions }, async (event) => {
+      await readSSE(`${API_BASE}/api/optimize`, { resumeText: rt, jobDescription: jd, companyName, jobTitle, sectionAdditions: additions }, async (event) => {
         if (event.type === 'step') {
           setStep(event.step, event.status);
         } else if (event.type === 'result') {
@@ -170,7 +174,7 @@ export default function App() {
     beginProcessing('match');
 
     try {
-      await readSSE('/api/match-only', { resumeText: rt, jobDescription: jd }, async (event) => {
+      await readSSE(`${API_BASE}/api/match-only`, { resumeText: rt, jobDescription: jd }, async (event) => {
         if (event.type === 'step') {
           setStep(event.step, event.status);
         } else if (event.type === 'result') {
@@ -194,7 +198,7 @@ export default function App() {
     beginProcessing('coverletter');
 
     try {
-      await readSSE('/api/cover-letter', { resumeText: rt, jobDescription: jd }, async (event) => {
+      await readSSE(`${API_BASE}/api/cover-letter`, { resumeText: rt, jobDescription: jd }, async (event) => {
         if (event.type === 'step') {
           setStep(event.step, event.status);
         } else if (event.type === 'result') {
