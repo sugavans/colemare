@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import optimizeRouter from './routes/optimize.js';
@@ -20,6 +21,24 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const app = express();
+
+// ── Rate limiting ────────────────────────────────────────────────────────────
+// Scan is cheap (Haiku) — allow more. Optimize/match/cover-letter are expensive.
+const scanLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,       // 1 hour
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again in an hour.' },
+});
+
+const pipelineLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,       // 1 hour
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again in an hour.' },
+});
 
 // Support comma-separated origins: "http://localhost:3000,https://colemare.vercel.app"
 const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGIN || 'http://localhost:3000')
@@ -39,6 +58,10 @@ const outputsDir = path.resolve(__dirname, '../outputs');
 app.use('/download', express.static(outputsDir));
 
 // ── API Routes ────────────────────────────────────────────────────────────────
+app.use('/api/scan',         scanLimiter);
+app.use('/api/optimize',     pipelineLimiter);
+app.use('/api/match-only',   pipelineLimiter);
+app.use('/api/cover-letter', pipelineLimiter);
 app.use('/api', optimizeRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
