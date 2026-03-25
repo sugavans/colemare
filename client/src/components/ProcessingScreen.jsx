@@ -24,8 +24,8 @@ const STEP_SETS = {
 };
 
 const MODE_TITLES = {
-  optimize:    { icon: '⚙️', title: 'Optimizing Your Resume',      subtitle: 'This usually takes 60–90 seconds.' },
-  match:       { icon: '📊', title: 'Running Match Analysis',       subtitle: 'This usually takes 30–45 seconds.' },
+  optimize:    { icon: '✨', title: 'Optimizing Everything',         subtitle: 'This usually takes 60–90 seconds.' },
+  match:       { icon: '📊', title: 'Scoring Your Resume',          subtitle: 'This usually takes 30–45 seconds.' },
   coverletter: { icon: '✉️', title: 'Drafting Your Cover Letter',   subtitle: 'This usually takes 30–45 seconds.' },
 };
 

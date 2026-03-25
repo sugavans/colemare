@@ -174,8 +174,8 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
           <button
             onClick={handleOptimize}
             disabled={anyLoading || !bothFilled}
-            className="btn-primary flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold"
-            style={{ minWidth: '200px', maxWidth: '240px', textAlign: 'center' }}
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm"
+            style={{ minWidth: '160px', maxWidth: '190px', textAlign: 'center' }}
             title="Optimize your resume, run a match analysis, and draft a cover letter — all in one go"
           >
             {loadingMode === 'optimize' ? (

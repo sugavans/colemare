@@ -221,8 +221,8 @@ export default function App() {
         <div className="flex items-center gap-3">
           <span className="text-2xl">📄</span>
           <div>
-            <h1 className="font-display text-lg font-bold leading-tight">Resume Optimizer</h1>
-            <p className="text-blue-200 text-xs">AI-powered • Powered by Claude</p>
+            <h1 className="font-display text-lg font-bold leading-tight">Colemare</h1>
+            <p className="text-blue-200 text-xs">AI-powered resume & cover letter</p>
           </div>
         </div>
         {screen !== SCREEN.INPUT && (

@@ -25,7 +25,7 @@ export default function SectionReviewScreen({ scanData, onComplete }) {
   return (
     <div className="px-4 py-8 md:px-8 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold text-navy mb-1">Resume Section Review</h2>
+        <h2 className="font-display text-2xl font-bold text-navy mb-1">Review Your Resume Sections</h2>
         <p className="text-gray-500 text-sm">We scanned your resume before optimising. Review detected sections below.</p>
         {scanData.companyName && scanData.companyName !== 'Unknown_Company' && (
           <p className="text-xs text-navy-light mt-1">

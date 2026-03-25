@@ -284,9 +284,7 @@ function DownloadBar({ exportData, onDownload }) {
           ⬇ Download Cover Letter (.docx)
         </button>
       )}
-      {exportData.folderName && (
-        <p className="text-xs text-gray-400 w-full mt-1">Files saved in the <strong>{exportData.folderName}</strong> folder.</p>
-      )}
+
     </div>
   );
 }
