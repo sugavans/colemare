@@ -140,57 +140,48 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
       <div className="flex flex-col items-center gap-3">
         <div className="flex flex-wrap items-center justify-center gap-4">
 
-          {/* Left: Match Only */}
+          {/* Left: Score My Resume */}
           <button
             onClick={handleMatchOnly}
             disabled={anyLoading || !bothFilled}
-            className="btn-primary flex flex-col items-center gap-1 px-6 py-3 text-sm"
-            style={{ minWidth: '160px', maxWidth: '180px', textAlign: 'center' }}
-            title="Analyze your resume against the JD without rewriting it"
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm"
+            style={{ minWidth: '160px', maxWidth: '190px', textAlign: 'center' }}
+            title="Analyze how well your resume matches the job description — no rewriting"
           >
             {loadingMode === 'match' ? (
               <span className="flex items-center gap-2"><span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: '14px', height: '14px', borderWidth: '2px' }} /> Analyzing…</span>
             ) : (
-              <>
-                <span>📊 Match Resume with JD</span>
-                <em style={{ fontStyle: 'italic', fontWeight: 400, fontSize: '11px', opacity: 0.85 }}>(No Optimization)</em>
-              </>
+              <span>📊 Score My Resume</span>
             )}
           </button>
 
-          {/* Centre: Optimize + Cover Letter — primary CTA */}
+          {/* Centre: Draft Cover Letter */}
+          <button
+            onClick={handleCoverLetter}
+            disabled={anyLoading || !bothFilled}
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm"
+            style={{ minWidth: '160px', maxWidth: '190px', textAlign: 'center' }}
+            title="Generate a tailored cover letter for this role — no resume rewriting"
+          >
+            {loadingMode === 'coverletter' ? (
+              <span className="flex items-center gap-2"><span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: '14px', height: '14px', borderWidth: '2px' }} /> Drafting…</span>
+            ) : (
+              <span>✉️ Draft Cover Letter</span>
+            )}
+          </button>
+
+          {/* Right: Optimize Everything — primary CTA */}
           <button
             onClick={handleOptimize}
             disabled={anyLoading || !bothFilled}
-            className="btn-primary flex flex-col items-center gap-1 px-8 py-4 text-base"
+            className="btn-primary flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold"
             style={{ minWidth: '200px', maxWidth: '240px', textAlign: 'center' }}
             title="Optimize your resume, run a match analysis, and draft a cover letter — all in one go"
           >
             {loadingMode === 'optimize' ? (
               <span className="flex items-center gap-2"><span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Scanning resume…</span>
             ) : (
-              <>
-                <span>✨ Optimize Resume &amp;</span>
-                <span>Create Cover Letter</span>
-              </>
-            )}
-          </button>
-
-          {/* Right: Cover Letter only */}
-          <button
-            onClick={handleCoverLetter}
-            disabled={anyLoading || !bothFilled}
-            className="btn-primary flex flex-col items-center gap-1 px-6 py-3 text-sm"
-            style={{ minWidth: '160px', maxWidth: '180px', textAlign: 'center' }}
-            title="Generate a tailored cover letter for this role"
-          >
-            {loadingMode === 'coverletter' ? (
-              <span className="flex items-center gap-2"><span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: '14px', height: '14px', borderWidth: '2px' }} /> Drafting…</span>
-            ) : (
-              <>
-                <span>✉️ Create Cover Letter Only</span>
-                <em style={{ fontStyle: 'italic', fontWeight: 400, fontSize: '11px', opacity: 0.85 }}>(No Optimization)</em>
-              </>
+              <span>✨ Optimize Everything</span>
             )}
           </button>
         </div>

@@ -239,9 +239,9 @@ function CoverLetterTab({ coverLetter, onDownload, exportData }) {
         </pre>
       </div>
       <div className="flex justify-center">
-        {exportData?.coverLetterUrl ? (
+        {(exportData?.coverLetterData || exportData?.coverLetterUrl) ? (
           <button
-            onClick={() => onDownload(exportData.coverLetterUrl, exportData.coverLetterFileName)}
+            onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)}
             className="btn-primary flex items-center gap-2 text-sm py-2 px-4"
           >
             ⬇ Download Cover Letter (.docx)
@@ -269,18 +269,18 @@ function DownloadBar({ exportData, onDownload }) {
   }
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {exportData.resumeUrl && (
-        <button onClick={() => onDownload(exportData.resumeUrl, exportData.resumeFileName)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+      {(exportData.resumeData || exportData.resumeUrl) && (
+        <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           ⬇ Download Resume (.docx)
         </button>
       )}
-      {exportData.analysisUrl && (
-        <button onClick={() => onDownload(exportData.analysisUrl, exportData.analysisFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+      {(exportData.analysisData || exportData.analysisUrl) && (
+        <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
           ⬇ Download Analysis (.docx)
         </button>
       )}
-      {exportData.coverLetterUrl && (
-        <button onClick={() => onDownload(exportData.coverLetterUrl, exportData.coverLetterFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+      {(exportData.coverLetterData || exportData.coverLetterUrl) && (
+        <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
           ⬇ Download Cover Letter (.docx)
         </button>
       )}
@@ -299,11 +299,24 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
   const defaultTab = mode === 'match' ? 'analysis' : mode === 'coverletter' ? 'coverletter' : 'resume';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
-  const handleDownload = (url, filename) => {
+  // Accepts either a base64 string (production) or a URL (local dev fallback)
+  const handleDownload = (dataOrUrl, filename) => {
     const a = document.createElement('a');
-    a.href = url;
+    if (dataOrUrl.startsWith('http') || dataOrUrl.startsWith('/')) {
+      // Legacy URL path (local dev)
+      a.href = dataOrUrl;
+    } else {
+      // Base64 buffer from production API
+      const bytes = Uint8Array.from(atob(dataOrUrl), c => c.charCodeAt(0));
+      const blob  = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      a.href = URL.createObjectURL(blob);
+    }
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    // Revoke object URL after download to free memory
+    if (a.href.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   };
 
   // Build tab list — Resume tab only for optimize mode
@@ -314,9 +327,9 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
 
   // Action bar config for match / coverletter modes
   const actionBar = mode === 'match' ? {
-    optimizeLabel: "✨ Let's Optimize Resume & Create Cover Letter",
+    optimizeLabel: "✨ Optimize Everything",
   } : mode === 'coverletter' ? {
-    optimizeLabel: "✨ Let's Optimize Resume & Create a New Cover Letter",
+    optimizeLabel: "✨ Optimize Everything",
   } : null;
 
   return (
@@ -373,7 +386,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
       {/* Match-only download */}
       {mode === 'match' && exportData?.analysisUrl && (
         <div className="card mb-6">
-          <button onClick={() => handleDownload(exportData.analysisUrl, exportData.analysisFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+          <button onClick={() => handleDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
             ⬇ Download Analysis (.docx)
           </button>
         </div>

@@ -18,9 +18,6 @@
  */
 
 import { Router } from 'express';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   SCAN_SYSTEM_PROMPT,
@@ -31,15 +28,13 @@ import {
   buildScanUserPrompt,
   assembleOptimisedResumeText,
 } from '../../shared/prompts.js';
-import { buildFileName, buildFolderPath } from '../../shared/fileNaming.js';
+import { buildFileName } from '../../shared/fileNaming.js';
 import { generateResumeDocx, generateAnalysisDocx, generateCoverLetterDocx } from '../../shared/docxGenerator.js';
 
-const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const router     = Router();
 const client     = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const HAIKU      = 'claude-haiku-4-5-20251001';
 const SONNET     = 'claude-sonnet-4-6';
-const OUTPUTS_DIR = path.resolve(__dirname, '../../outputs');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -278,11 +273,11 @@ router.post('/optimize', async (req, res) => {
 });
 
 // ─── POST /api/export ─────────────────────────────────────────────────────────
+// Documents are generated in memory and returned as base64 strings.
+// No filesystem writes — works on ephemeral platforms like Railway and Vercel.
 router.post('/export', async (req, res) => {
   const { headers, experience, analysis, companyName, jobTitle, sectionsWereAdded, coverLetter } = req.body;
   try {
-    const folderPath  = buildFolderPath(companyName, OUTPUTS_DIR);
-    fs.mkdirSync(folderPath, { recursive: true });
     const safeCompany = (companyName || 'Company').replace(/[/\\:*?"<>|]/g, '_').trim();
     const payload     = { folderName: safeCompany };
 
@@ -290,24 +285,21 @@ router.post('/export', async (req, res) => {
       analysis && (async () => {
         const fn  = buildFileName(companyName, jobTitle, 'Analysis');
         const buf = await generateAnalysisDocx(analysis, companyName, jobTitle, sectionsWereAdded);
-        fs.writeFileSync(path.join(folderPath, fn), buf);
-        payload.analysisUrl = `/download/${safeCompany}/${fn}`;
+        payload.analysisData     = buf.toString('base64');
         payload.analysisFileName = fn;
       })(),
 
       headers && typeof headers === 'object' && (async () => {
         const fn  = buildFileName(companyName, jobTitle, 'Resume');
         const buf = await generateResumeDocx(headers, experience);
-        fs.writeFileSync(path.join(folderPath, fn), buf);
-        payload.resumeUrl = `/download/${safeCompany}/${fn}`;
+        payload.resumeData     = buf.toString('base64');
         payload.resumeFileName = fn;
       })(),
 
       coverLetter?.trim() && (async () => {
         const fn  = buildFileName(companyName, jobTitle, 'CoverLetter');
         const buf = await generateCoverLetterDocx(coverLetter, companyName, jobTitle);
-        fs.writeFileSync(path.join(folderPath, fn), buf);
-        payload.coverLetterUrl = `/download/${safeCompany}/${fn}`;
+        payload.coverLetterData     = buf.toString('base64');
         payload.coverLetterFileName = fn;
       })(),
     ].filter(Boolean));
