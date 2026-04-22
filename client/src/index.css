@@ -14,6 +14,23 @@
   .btn-primary {
     @apply bg-navy text-white font-semibold px-6 py-3 rounded-pill hover:bg-navy-light transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
   }
+  /* Workflow-specific button variants */
+  .btn-match {
+    @apply text-white font-semibold px-6 py-3 rounded-pill transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+    background-color: #0E7490;
+  }
+  .btn-match:hover:not(:disabled) { background-color: #0C6578; }
+
+  .btn-cl {
+    @apply text-white font-semibold px-6 py-3 rounded-pill transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+    background-color: #6D28D9;
+  }
+  .btn-cl:hover:not(:disabled) { background-color: #5B21B6; }
+
+  .btn-opt {
+    @apply bg-navy text-white font-semibold px-6 py-3 rounded-pill hover:bg-navy-light transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+  }
+
   .btn-secondary {
     @apply border-2 border-navy text-navy font-semibold px-6 py-3 rounded-pill hover:bg-navy hover:text-white transition-all duration-200;
   }

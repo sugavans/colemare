@@ -24,17 +24,20 @@ const app = express();
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
 // Scan is cheap (Haiku) — allow more. Optimize/match/cover-letter are expensive.
+// In production, limits are enforced. Locally, set much higher to avoid blocking dev testing.
+const IS_DEV = !process.env.CLIENT_ORIGIN || process.env.CLIENT_ORIGIN.includes('localhost');
+
 const scanLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,       // 1 hour
-  max: 30,
+  windowMs: 60 * 60 * 1000,
+  max: IS_DEV ? 500 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again in an hour.' },
 });
 
 const pipelineLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,       // 1 hour
-  max: 10,
+  windowMs: 60 * 60 * 1000,
+  max: IS_DEV ? 100 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again in an hour.' },
@@ -68,6 +71,9 @@ app.use('/api', optimizeRouter);
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ── Silence favicon 404 ───────────────────────────────────────────────────────
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 app.listen(PORT, () => {
   console.log(`\n✅  Resume Optimizer API running at http://localhost:${PORT}`);

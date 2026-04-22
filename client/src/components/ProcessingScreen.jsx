@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Footer from './Footer';
 
 const STEP_SETS = {
@@ -59,6 +59,16 @@ export default function ProcessingScreen({ steps, error, onRetry, mode = 'optimi
   const { icon, title, subtitle } = MODE_TITLES[mode] || MODE_TITLES.optimize;
   const completeCount = Object.values(steps).filter(s => s === 'complete').length;
 
+  // Cold-start warning — Railway free tier spins down after inactivity
+  const [showColdStart, setShowColdStart] = useState(false);
+  useEffect(() => {
+    if (error) return;
+    const timer = setTimeout(() => {
+      if (completeCount === 0) setShowColdStart(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [completeCount, error]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 py-12">
       <div className="card max-w-md w-full text-center">
@@ -75,6 +85,12 @@ export default function ProcessingScreen({ steps, error, onRetry, mode = 'optimi
             <div className="text-3xl mb-3">{icon}</div>
             <h3 className="font-display text-xl text-navy font-bold mb-1">{title}</h3>
             <p className="text-gray-400 text-sm mb-6">{subtitle}</p>
+
+            {showColdStart && (
+              <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 fade-in">
+                ⏳ The server is warming up — this can take 15–20 seconds on first use. Hang tight…
+              </div>
+            )}
 
             <div className="text-left space-y-1 mb-6">
               {stepList.map(step => {

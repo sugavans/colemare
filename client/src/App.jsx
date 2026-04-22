@@ -85,6 +85,15 @@ export default function App() {
     setOptimizeError(null);
   }, []);
 
+  // Preserves resume + JD text on error — used by Try Again button
+  const handleRetry = useCallback(() => {
+    setScreen(SCREEN.INPUT);
+    setOptimizeError(null);
+    setResults(null);
+    setExportData(null);
+    setSteps(INITIAL_STEPS.optimize);
+  }, []);
+
   const beginProcessing = useCallback((mode) => {
     setScreen(SCREEN.PROCESSING);
     setResults(null);
@@ -246,7 +255,7 @@ export default function App() {
           <SectionReviewScreen scanData={scanData} onComplete={handleSectionReviewComplete} />
         )}
         {screen === SCREEN.PROCESSING && (
-          <ProcessingScreen steps={steps} error={optimizeError} onRetry={handleReset} mode={appMode} />
+          <ProcessingScreen steps={steps} error={optimizeError} onRetry={handleRetry} mode={appMode} />
         )}
         {screen === SCREEN.RESULTS && results && (
           <ResultsScreen

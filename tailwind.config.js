@@ -8,6 +8,10 @@ export default {
           DEFAULT: '#1F3864',
           light: '#2E5DA6',
         },
+        // Workflow color tokens
+        'match-color':  { DEFAULT: '#0E7490', light: '#E0F2F7', border: '#0E7490' }, // teal — Score My Resume
+        'cl-color':     { DEFAULT: '#6D28D9', light: '#EDE9FE', border: '#6D28D9' }, // violet — Draft Cover Letter
+        'opt-color':    { DEFAULT: '#1F3864', light: '#EAF4EA', border: '#1F3864' }, // navy — Optimize Everything
         surface: '#FFFFFF',
         background: '#F0F2F7',
         success: '#27AE60',

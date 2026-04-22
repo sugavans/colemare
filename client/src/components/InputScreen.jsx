@@ -11,7 +11,6 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
   const [jobDescription, setJobDescription] = useState(initialJobDescription);
   const [error, setError]                   = useState('');
   const [loadingMode, setLoadingMode]       = useState(null); // 'optimize' | 'match' | 'coverletter'
-  const [hasSubmittedOnce, setHasSubmittedOnce] = useState(false);
 
   useEffect(() => {
     setResumeText(initialResumeText);
@@ -19,9 +18,12 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
   }, [initialResumeText, initialJobDescription]);
 
   const validate = () => {
-    setHasSubmittedOnce(true);
     if (!resumeText.trim() || !jobDescription.trim()) {
       setError('Please paste both your resume and job description before continuing.');
+      return false;
+    }
+    if (resumeText.trim() === jobDescription.trim()) {
+      setError('Your resume and job description appear to be identical. Please check and correct before continuing.');
       return false;
     }
     setError('');
@@ -56,7 +58,6 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
     setResumeText('');
     setJobDescription('');
     setError('');
-    setHasSubmittedOnce(false);
   }, []);
 
   const totalWords  = wordCount(resumeText) + wordCount(jobDescription);
@@ -140,12 +141,12 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
       <div className="flex flex-col items-center gap-3">
         <div className="flex flex-wrap items-center justify-center gap-4">
 
-          {/* Left: Score My Resume */}
+          {/* Left: Score My Resume — teal */}
           <button
             onClick={handleMatchOnly}
             disabled={anyLoading || !bothFilled}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm"
-            style={{ minWidth: '160px', maxWidth: '190px', textAlign: 'center' }}
+            className="btn-match flex items-center justify-center text-sm"
+            style={{ width: '176px', textAlign: 'center' }}
             title="Analyze how well your resume matches the job description — no rewriting"
           >
             {loadingMode === 'match' ? (
@@ -155,12 +156,12 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
             )}
           </button>
 
-          {/* Centre: Draft Cover Letter */}
+          {/* Centre: Draft Cover Letter — violet */}
           <button
             onClick={handleCoverLetter}
             disabled={anyLoading || !bothFilled}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm"
-            style={{ minWidth: '160px', maxWidth: '190px', textAlign: 'center' }}
+            className="btn-cl flex items-center justify-center text-sm"
+            style={{ width: '176px', textAlign: 'center' }}
             title="Generate a tailored cover letter for this role — no resume rewriting"
           >
             {loadingMode === 'coverletter' ? (
@@ -170,16 +171,16 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
             )}
           </button>
 
-          {/* Right: Optimize Everything — primary CTA */}
+          {/* Right: Optimize Everything — navy */}
           <button
             onClick={handleOptimize}
             disabled={anyLoading || !bothFilled}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-3 text-sm"
-            style={{ minWidth: '160px', maxWidth: '190px', textAlign: 'center' }}
+            className="btn-opt flex items-center justify-center text-sm"
+            style={{ width: '176px', textAlign: 'center' }}
             title="Optimize your resume, run a match analysis, and draft a cover letter — all in one go"
           >
             {loadingMode === 'optimize' ? (
-              <span className="flex items-center gap-2"><span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Scanning resume…</span>
+              <span className="flex items-center gap-2"><span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: '14px', height: '14px', borderWidth: '2px' }} /> Scanning resume…</span>
             ) : (
               <span>✨ Optimize Everything</span>
             )}
@@ -193,16 +194,17 @@ export default function InputScreen({ initialResumeText = '', initialJobDescript
         )}
       </div>
 
-      {/* Feature strip */}
+      {/* Feature strip — aligned to 3 workflows */}
       <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 text-center text-sm text-gray-500">
         {[
-          { icon: '🔍', text: 'Detects missing sections before optimising' },
-          { icon: '✍️', text: 'Rewrites every bullet using what/how/so-what' },
-          { icon: '📊', text: 'Scores every JD requirement individually' },
+          { icon: '📊', label: 'Score My Resume',     color: '#0E7490', text: 'Scores your resume against every JD requirement with an honest match percentage and ATS keyword audit.' },
+          { icon: '✉️', label: 'Draft Cover Letter',  color: '#6D28D9', text: 'Writes a tailored cover letter that connects your real experience to the employer\'s specific needs — no fabrication.' },
+          { icon: '✨', label: 'Optimize Everything', color: '#1F3864', text: 'Rewrites every bullet, reorders your skills, and delivers a scored analysis and cover letter — all in one run.' },
         ].map(f => (
-          <div key={f.text} className="flex flex-col items-center gap-1 p-4 rounded-card bg-white shadow-card">
+          <div key={f.label} className="flex flex-col items-center gap-2 p-4 rounded-card bg-white shadow-card">
             <span className="text-2xl">{f.icon}</span>
-            <span>{f.text}</span>
+            <span className="font-semibold text-xs tracking-wide uppercase" style={{ color: f.color }}>{f.label}</span>
+            <span className="text-gray-500 text-xs leading-relaxed">{f.text}</span>
           </div>
         ))}
       </div>

@@ -15,6 +15,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        timeout: 120000,        // 2 minutes — covers long Sonnet calls
+        proxyTimeout: 120000,   // upstream response timeout
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            // Keep SSE connections alive through the proxy
+            proxyReq.setHeader('Connection', 'keep-alive');
+          });
+        },
       },
       '/download': {
         target: 'http://localhost:3001',

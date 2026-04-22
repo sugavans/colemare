@@ -51,7 +51,7 @@ function ScoreBanner({ analysis, companyName, jobTitle, sectionsWereAdded, scanD
 // ─── Section Divider ──────────────────────────────────────────────────────────
 function SectionDivider({ title }) {
   return (
-    <div className="mb-3">
+    <div className="mt-6 mb-3">
       <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1F3864' }}>{title}</h2>
       <hr style={{ borderColor: '#1F3864', marginTop: '4px' }} />
     </div>
@@ -84,7 +84,9 @@ function ResumeTab({ headers, experience }) {
         </h1>
 
         {headers?.contact && (
-          <p className="text-center text-sm text-gray-600 mb-6" style={{ lineHeight: 1.6 }}>{headers.contact}</p>
+          <p className="text-center text-sm text-gray-600 mb-6" style={{ lineHeight: 1.6 }}>
+            {Array.isArray(headers.contact) ? headers.contact.join('') : String(headers.contact || '')}
+          </p>
         )}
 
         {headers?.summary && (
@@ -122,7 +124,9 @@ function ResumeTab({ headers, experience }) {
                     <p className="text-xs text-gray-500 italic mt-0.5">{job.companyDescription}</p>
                   )}
                   <p className="text-sm font-semibold italic mt-1" style={{ color: '#2E5DA6' }}>{job.roleTitle}</p>
-                  {job.roleSummary && <p className="text-xs text-gray-600 mt-1">{job.roleSummary}</p>}
+                  {job.roleSummary && (
+                    <p className="text-xs text-gray-500 italic mt-1 pl-2 border-l-2 border-navy border-opacity-30">{job.roleSummary}</p>
+                  )}
                   {job.bullets && job.bullets.length > 0 && (
                     <ul className="mt-2 space-y-1.5 list-none">
                       {job.bullets.map((b, j) => (
@@ -153,15 +157,24 @@ function ResumeTab({ headers, experience }) {
 }
 
 // ─── Match Analysis Tab ───────────────────────────────────────────────────────
-function AnalysisTab({ analysis, sectionsWereAdded }) {
-  const requirements = analysis?.requirements || [];
-  const gaps         = analysis?.gaps         || [];
+function AnalysisTab({ analysis, sectionsWereAdded, mc }) {
+  const requirements = analysis?.requirements  || [];
+  const gaps         = analysis?.gaps          || [];
+  const atsKeywords  = analysis?.atsKeywords   || null;
+  const gapPlan      = analysis?.gapActionPlan || [];
 
   const statusColor = s => s === 'STRONG' ? 'text-green-600' : s === 'PARTIAL' ? 'text-amber-600' : 'text-red-600';
   const statusBg    = s => s === 'STRONG' ? 'bg-green-50 border-green-200' : s === 'PARTIAL' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
   const barColor    = s => s === 'STRONG' ? 'bg-green-500' : s === 'PARTIAL' ? 'bg-amber-500' : 'bg-red-500';
   const gapBorder   = p => p === 'HIGH' ? 'border-red-500' : p === 'MEDIUM' ? 'border-amber-500' : 'border-gray-400';
   const gapBadge    = p => p === 'HIGH' ? 'badge-red'  : p === 'MEDIUM' ? 'badge-amber' : 'badge-grey';
+
+  const dispositionLabel = d => ({
+    LEAD_WITH_CONFIDENCE:  { text: 'Lead with confidence', bg: 'bg-green-100 text-green-800' },
+    REFRAME_TO_STRENGTHEN: { text: 'Reframe to strengthen', bg: 'bg-blue-100 text-blue-800' },
+    HANDLE_CAREFULLY:      { text: 'Handle carefully', bg: 'bg-amber-100 text-amber-800' },
+    OMIT:                  { text: 'Omit — prep interview', bg: 'bg-red-100 text-red-800' },
+  }[d] || null);
 
   return (
     <div className="space-y-6">
@@ -171,8 +184,60 @@ function AnalysisTab({ analysis, sectionsWereAdded }) {
         </div>
       )}
 
+      {/* ATS Keyword Audit — first */}
+      {atsKeywords && (atsKeywords.present?.length > 0 || atsKeywords.missing?.length > 0) && (
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>ATS Keyword Audit</h3>
+          <div className="p-4 rounded-card border bg-white space-y-3">
+            {atsKeywords.present?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-green-700 mb-1">✅ Present in resume</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {atsKeywords.present.map((kw, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-green-50 border border-green-200 rounded text-xs text-green-800">{kw}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {atsKeywords.missing?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-red-700 mb-1">❌ Missing from resume</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {atsKeywords.missing.map((kw, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-red-50 border border-red-200 rounded text-xs text-red-800">{kw}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Gap Action Plan — second */}
+      {gapPlan.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>Gap Action Plan</h3>
+          <div className="space-y-3">
+            {gapPlan.map((item, i) => (
+              <div key={i} className="p-4 rounded-card border border-l-4 border-amber-400 bg-amber-50" style={{ borderLeftWidth: '4px' }}>
+                <p className="text-sm font-semibold text-gray-800 mb-1">{item.item}</p>
+                {item.disposition && dispositionLabel(item.disposition) && (
+                  <span className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-medium ${dispositionLabel(item.disposition).bg}`}>
+                    {dispositionLabel(item.disposition).text}
+                  </span>
+                )}
+                {item.interviewPrep && (
+                  <p className="text-xs text-gray-600 italic">🎤 Interview prep: {item.interviewPrep}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Requirements Analysis — third */}
       <div>
-        <h3 className="text-sm font-bold text-navy uppercase tracking-wide mb-3">Requirements Analysis</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>Requirements Analysis</h3>
         <div className="space-y-3">
           {requirements.map((req, i) => (
             <div key={i} className={`p-4 rounded-card border ${statusBg(req.status)}`}>
@@ -182,7 +247,6 @@ function AnalysisTab({ analysis, sectionsWereAdded }) {
                   {req.description && <p className="text-xs text-gray-500 mt-0.5">{req.description}</p>}
                 </div>
                 <div className="text-right shrink-0">
-                  {/* Change 3: 0% + GAP status → show "0% MATCH" not "0% GAP" */}
                   <p className={`text-lg font-bold ${statusColor(req.status)}`}>{req.score}%</p>
                   <span className={`text-xs font-bold ${statusColor(req.status)}`}>
                     {req.status === 'GAP' && req.score === 0 ? 'NO MATCH' : req.status}
@@ -201,14 +265,20 @@ function AnalysisTab({ analysis, sectionsWereAdded }) {
               {req.suggestion && req.suggestion !== 'Well covered — no action needed' && (
                 <p className="text-xs text-gray-500 mt-1 italic">💡 {req.suggestion}</p>
               )}
+              {req.disposition && dispositionLabel(req.disposition) && (
+                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${dispositionLabel(req.disposition).bg}`}>
+                  {dispositionLabel(req.disposition).text}
+                </span>
+              )}
             </div>
           ))}
         </div>
       </div>
 
+      {/* Skill Gaps — fourth */}
       {gaps.length > 0 && (
         <div>
-          <h3 className="text-sm font-bold text-navy uppercase tracking-wide mb-3">Skill Gaps & Recommendations</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>Skill Gaps & Recommendations</h3>
           <div className="space-y-3">
             {gaps.map((gap, i) => (
               <div key={i} className={`p-4 rounded-card border border-l-4 bg-white ${gapBorder(gap.priority)}`} style={{ borderLeftWidth: '4px' }}>
@@ -229,20 +299,43 @@ function AnalysisTab({ analysis, sectionsWereAdded }) {
 }
 
 // ─── Cover Letter Tab ─────────────────────────────────────────────────────────
+function parseCoverLetterLine(line, i) {
+  const trimmed = line.trim();
+  const boldBullet = trimmed.match(/^-\s+\*\*(.+?)\*\*(.*)$/);
+  const plainBullet = !boldBullet && trimmed.match(/^-\s+(.+)$/);
+  if (boldBullet) {
+    return (
+      <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+        <span style={{ flexShrink: 0 }}>•</span>
+        <span><strong>{boldBullet[1]}</strong>{boldBullet[2]}</span>
+      </div>
+    );
+  }
+  if (plainBullet) {
+    return (
+      <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+        <span style={{ flexShrink: 0 }}>•</span>
+        <span>{plainBullet[1]}</span>
+      </div>
+    );
+  }
+  return trimmed === ''
+    ? <div key={i} style={{ marginBottom: '8px' }} />
+    : <p key={i} style={{ marginBottom: '8px' }}>{trimmed}</p>;
+}
+
 function CoverLetterTab({ coverLetter, onDownload, exportData }) {
   if (!coverLetter) return null;
   return (
     <div>
       <div className="bg-white rounded-card shadow-card p-8 max-w-3xl mx-auto mb-4" style={{ fontFamily: 'Georgia, serif', lineHeight: 1.8, fontSize: '14px', color: '#333' }}>
-        <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit' }}>
-          {coverLetter}
-        </pre>
+        {coverLetter.split('\n').map((line, i) => parseCoverLetterLine(line, i))}
       </div>
       <div className="flex justify-center">
         {(exportData?.coverLetterData || exportData?.coverLetterUrl) ? (
           <button
             onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)}
-            className="btn-primary flex items-center gap-2 text-sm py-2 px-4"
+            className="btn-cl flex items-center gap-2 text-sm py-2 px-4"
           >
             ⬇ Download Cover Letter (.docx)
           </button>
@@ -270,21 +363,20 @@ function DownloadBar({ exportData, onDownload }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
       {(exportData.resumeData || exportData.resumeUrl) && (
-        <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName)} className="btn-opt flex items-center gap-2 text-sm py-2 px-4">
           ⬇ Download Resume (.docx)
         </button>
       )}
       {(exportData.analysisData || exportData.analysisUrl) && (
-        <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+        <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-match flex items-center gap-2 text-sm py-2 px-4">
           ⬇ Download Analysis (.docx)
         </button>
       )}
       {(exportData.coverLetterData || exportData.coverLetterUrl) && (
-        <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+        <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)} className="btn-cl flex items-center gap-2 text-sm py-2 px-4">
           ⬇ Download Cover Letter (.docx)
         </button>
       )}
-
     </div>
   );
 }
@@ -299,6 +391,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
 
   // Accepts either a base64 string (production) or a URL (local dev fallback)
   const handleDownload = (dataOrUrl, filename) => {
+    if (!dataOrUrl) return;
     const a = document.createElement('a');
     if (dataOrUrl.startsWith('http') || dataOrUrl.startsWith('/')) {
       // Legacy URL path (local dev)
@@ -323,6 +416,14 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
   if (analysis)            tabs.push({ id: 'analysis',    label: '📊 Match Analysis' });
   if (coverLetter)         tabs.push({ id: 'coverletter', label: '✉️ Cover Letter' });
 
+  // Workflow color palette — matches button colors on input screen
+  const modeColors = {
+    match:       { primary: '#0E7490', light: '#E0F2F7', border: '#0E7490', label: 'teal'   },
+    coverletter: { primary: '#6D28D9', light: '#EDE9FE', border: '#6D28D9', label: 'violet' },
+    optimize:    { primary: '#1F3864', light: '#EAF4EA', border: '#1F3864', label: 'navy'   },
+  };
+  const mc = modeColors[mode] || modeColors.optimize;
+
   // Action bar config for match / coverletter modes
   const actionBar = mode === 'match' ? {
     optimizeLabel: "✨ Optimize Everything",
@@ -340,7 +441,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
             <button onClick={onGoBack} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
               ← Back to Inputs
             </button>
-            <button onClick={onOptimize} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+            <button onClick={onOptimize} className="btn-opt flex items-center gap-2 text-sm py-2 px-4">
               {actionBar.optimizeLabel}
             </button>
           </>
@@ -366,7 +467,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
         <div className="card mb-6 flex items-center gap-4">
           <span className="text-3xl">✉️</span>
           <div>
-            <h2 className="font-display text-xl text-navy font-bold">Cover Letter</h2>
+            <h2 className="font-display text-xl font-bold" style={{ color: mc.primary }}>Cover Letter</h2>
             {companyName && companyName !== 'Unknown_Company' && (
               <p className="text-sm text-gray-500">{jobTitle} at {companyName}</p>
             )}
@@ -382,9 +483,9 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
       )}
 
       {/* Match-only download */}
-      {mode === 'match' && exportData?.analysisUrl && (
+      {mode === 'match' && (exportData?.analysisData || exportData?.analysisUrl) && (
         <div className="card mb-6">
-          <button onClick={() => handleDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+          <button onClick={() => handleDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-match flex items-center gap-2 text-sm py-2 px-4">
             ⬇ Download Analysis (.docx)
           </button>
         </div>
@@ -398,8 +499,9 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                activeTab === tab.id ? 'border-navy text-navy' : 'border-transparent text-gray-400 hover:text-gray-600'
+                activeTab === tab.id ? 'border-transparent text-gray-800' : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
+              style={activeTab === tab.id ? { borderBottomColor: mc.primary, color: mc.primary } : {}}
             >
               {tab.label}
             </button>
@@ -410,7 +512,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
       {/* Tab content */}
       <div className="fade-in">
         {activeTab === 'resume'      && <ResumeTab headers={headers} experience={experience} />}
-        {activeTab === 'analysis'    && <AnalysisTab analysis={analysis} sectionsWereAdded={sectionsWereAdded} />}
+        {activeTab === 'analysis'    && <AnalysisTab analysis={analysis} sectionsWereAdded={sectionsWereAdded} mc={mc} />}
         {activeTab === 'coverletter' && <CoverLetterTab coverLetter={coverLetter} onDownload={handleDownload} exportData={exportData} />}
       </div>
 

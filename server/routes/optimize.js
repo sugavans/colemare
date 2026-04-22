@@ -32,7 +32,11 @@ import { buildFileName } from '../../shared/fileNaming.js';
 import { generateResumeDocx, generateAnalysisDocx, generateCoverLetterDocx } from '../../shared/docxGenerator.js';
 
 const router     = Router();
-const client     = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({
+  apiKey:     process.env.ANTHROPIC_API_KEY,
+  timeout:    120_000,   // 2 minutes — covers large resume+JD inputs
+  maxRetries: 2,         // auto-retry on connection errors
+});
 const HAIKU      = 'claude-haiku-4-5-20251001';
 const SONNET     = 'claude-sonnet-4-6';
 
@@ -194,6 +198,9 @@ router.post('/optimize', async (req, res) => {
         ],
       });
       headers = safeParseJSON(raw);
+      // Normalize contact to string — AI occasionally returns it as char array
+      if (Array.isArray(headers.contact)) headers.contact = headers.contact.join('');
+      if (typeof headers.contact !== 'string') headers.contact = String(headers.contact || '');
     } catch (err) {
       emit(res, 'error', { message: err.message?.includes('parse') ? 'Could not parse header response. Please try again.' : 'Failed to optimize resume header. Please try again.' });
       return res.end();
@@ -225,7 +232,7 @@ router.post('/optimize', async (req, res) => {
     try {
       const optimisedText = assembleOptimisedResumeText(headers, experienceData);
       const raw = await callClaude({
-        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 4096, label: 'Call 3 / analysis',
+        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 8000, label: 'Call 3 / analysis',
         contentBlocks: [
           { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
           { text: `OPTIMISED RESUME:\n---\n${optimisedText}\n---\n\nAnalyse how well the optimised resume matches this job description. Return only valid JSON.`, cache: false },
@@ -279,7 +286,7 @@ router.post('/export', async (req, res) => {
   const { headers, experience, analysis, companyName, jobTitle, sectionsWereAdded, coverLetter } = req.body;
   try {
     const safeCompany = (companyName || 'Company').replace(/[/\\:*?"<>|]/g, '_').trim();
-    const payload     = { folderName: safeCompany };
+    const payload     = {};
 
     await Promise.all([
       analysis && (async () => {
@@ -329,11 +336,10 @@ router.post('/match-only', async (req, res) => {
     let analysis;
     try {
       const raw = await callClaude({
-        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 4096, label: 'match-only/analysis',
-        contentBlocks: [{
-          text: `RESUME (original, unoptimised):\n---\n${resumeText}\n---\n\nJOB DESCRIPTION:\n---\n${jobDescription}\n---\n\nAnalyse how well this resume matches the job description. Return only valid JSON.`,
-          cache: false,
-        }],
+        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 8000, label: 'match-only/analysis',
+        contentBlocks: [
+          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---\n\nRESUME (original, unoptimised):\n---\n${resumeText}\n---\n\nAnalyse how well this resume matches the job description. Return only valid JSON.`, cache: false },
+        ],
       });
       analysis = safeParseJSON(raw);
     } catch (err) {
