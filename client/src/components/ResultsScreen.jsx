@@ -78,16 +78,41 @@ function ResumeTab({ headers, experience }) {
       )}
 
       <div className="bg-white rounded-card shadow-card p-8 max-w-3xl mx-auto" style={{ fontFamily: 'Georgia, serif' }}>
-        {/* Title */}
-        <h1 className="text-center font-bold text-2xl mb-2" style={{ color: '#1F3864', fontFamily: '"Playfair Display", Georgia, serif' }}>
-          {headers?.optimisedTitle || 'Professional'}
-        </h1>
-
-        {headers?.contact && (
-          <p className="text-center text-sm text-gray-600 mb-6" style={{ lineHeight: 1.6 }}>
-            {Array.isArray(headers.contact) ? headers.contact.join('') : String(headers.contact || '')}
-          </p>
-        )}
+        {/* Header: Name → contact line → job title */}
+        {(() => {
+          const contactRaw   = Array.isArray(headers?.contact) ? headers.contact.join('') : String(headers?.contact || '');
+          const parts        = contactRaw.split('|').map(p => p.trim()).filter(Boolean);
+          const candidateName = parts[0] || '';
+          const linkedInPart  = parts.find(p => p.toLowerCase().includes('linkedin.com')) || '';
+          const otherParts    = parts.filter(p => p !== candidateName && p !== linkedInPart);
+          const linkedInHref  = linkedInPart ? (linkedInPart.startsWith('http') ? linkedInPart : `https://${linkedInPart}`) : '';
+          return (
+            <>
+              {candidateName && (
+                <h1 className="text-center font-bold mb-1" style={{ color: '#1F3864', fontFamily: '"Playfair Display", Georgia, serif', fontSize: '2rem' }}>
+                  {candidateName}
+                </h1>
+              )}
+              {(otherParts.length > 0 || linkedInPart) && (
+                <p className="text-center text-sm text-gray-500 mb-2" style={{ lineHeight: 1.6 }}>
+                  {otherParts.join(' | ')}
+                  {otherParts.length > 0 && linkedInPart && ' | '}
+                  {linkedInPart && (
+                    <a href={linkedInHref} target="_blank" rel="noopener noreferrer"
+                       style={{ color: '#2E5DA6', textDecoration: 'underline' }}>
+                      {linkedInPart}
+                    </a>
+                  )}
+                </p>
+              )}
+              {headers?.optimisedTitle && (
+                <h2 className="text-center font-bold mb-6" style={{ color: '#1F3864', fontSize: '1rem', letterSpacing: '0.01em' }}>
+                  {headers.optimisedTitle}
+                </h2>
+              )}
+            </>
+          );
+        })()}
 
         {headers?.summary && (
           <section className="mb-6">
