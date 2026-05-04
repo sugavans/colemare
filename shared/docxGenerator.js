@@ -90,16 +90,17 @@ function normaliseSectionName(raw) {
 export async function generateResumeDocx(headers, experience, addedSections = {}) {
   const children = [];
 
-  // ── Resume Header: Name → LinkedIn → Job Title → Contact Info ──────────────
+  // ── Resume Header: Name → Contact line (incl. LinkedIn) → Job Title ─────────
   // Parse contact string: "Full Name | email | phone | location | linkedin"
-  const contactParts   = (headers.contact || '').split('|').map(p => p.trim()).filter(Boolean);
-  const candidateName  = contactParts[0] || '';
-  const linkedInPart   = contactParts.find(p => p.toLowerCase().includes('linkedin.com')) || '';
-  const otherContact   = contactParts
-    .filter(p => p !== candidateName && p !== linkedInPart)
-    .join(' | ');
+  const contactParts  = (headers.contact || '').split('|').map(p => p.trim()).filter(Boolean);
+  const candidateName = contactParts[0] || '';
+  const linkedInPart  = contactParts.find(p => p.toLowerCase().includes('linkedin.com')) || '';
+  const otherParts    = contactParts.filter(p => p !== candidateName && p !== linkedInPart);
 
-  // 1. Candidate name — largest, Playfair Display
+  // Merge LinkedIn into the contact line: email | phone | location | linkedin
+  const contactLine   = [...otherParts, ...(linkedInPart ? [linkedInPart] : [])].join(' | ');
+
+  // 1. Candidate name — largest, Palatino Linotype
   if (candidateName) {
     children.push(
       new Paragraph({
@@ -109,18 +110,18 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
           font: 'Palatino Linotype',
         })],
         alignment: AlignmentType.CENTER,
-        spacing: { after: 60 },
+        spacing: { after: 40 },
       })
     );
   }
 
-  // 2. LinkedIn profile — if present
-  if (linkedInPart) {
+  // 2. Single contact line — email | phone | location | LinkedIn
+  if (contactLine) {
     children.push(
       new Paragraph({
         children: [new TextRun({
-          text: linkedInPart,
-          size: 17, font: 'Calibri', color: '2E5DA6',
+          text: contactLine,
+          size: 18, font: 'Calibri', color: DARK_GREY,
         })],
         alignment: AlignmentType.CENTER,
         spacing: { after: 60 },
@@ -138,21 +139,7 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
           font: 'Calibri',
         })],
         alignment: AlignmentType.CENTER,
-        spacing: { after: 80 },
-      })
-    );
-  }
-
-  // 4. Contact info — email, phone, location (everything except name and LinkedIn)
-  if (otherContact) {
-    children.push(
-      new Paragraph({
-        children: [new TextRun({
-          text: otherContact,
-          size: 18, font: 'Calibri', color: DARK_GREY,
-        })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 240 },
+        spacing: { after: 160 },
       })
     );
   }
@@ -318,7 +305,7 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
         properties: {
           page: {
             margin: {
-              top: convertInchesToTwip(1),
+              top: convertInchesToTwip(0.65),
               right: convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
               left: convertInchesToTwip(1),

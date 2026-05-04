@@ -8,4 +8,5 @@ dist/
 # ── Proprietary IP — do not commit ──────────────────────
 CLAUDE.md
 PRD-v2.md
+colemare-prd-v2.md
 *.md.bak
