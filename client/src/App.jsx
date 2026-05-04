@@ -160,11 +160,12 @@ export default function App() {
         } else if (event.type === 'result') {
           await runExport({
             headers: event.headers, experience: event.experience,
-            analysis: event.analysis, coverLetter: event.coverLetter,
+            analysis: event.analysis, atsPreview: event.atsPreview,
+            coverLetter: event.coverLetter,
             companyName: event.companyName, jobTitle: event.jobTitle,
             sectionsWereAdded: event.sectionsWereAdded,
           });
-          setResults({ ...event, mode: 'optimize' });
+          setResults({ ...event, mode: 'optimize' }); // atsPreview passed via ...event
           setScreen(SCREEN.RESULTS);
         } else if (event.type === 'error') {
           setOptimizeError(event.message || 'An error occurred. Please try again.');
@@ -187,7 +188,7 @@ export default function App() {
         if (event.type === 'step') {
           setStep(event.step, event.status);
         } else if (event.type === 'result') {
-          await runExport({ analysis: event.analysis, companyName: event.companyName, jobTitle: event.jobTitle, sectionsWereAdded: false });
+          await runExport({ analysis: event.analysis, atsPreview: event.atsPreview, companyName: event.companyName, jobTitle: event.jobTitle, sectionsWereAdded: false });
           setResults({ ...event, mode: 'match' });
           setScreen(SCREEN.RESULTS);
         } else if (event.type === 'error') {

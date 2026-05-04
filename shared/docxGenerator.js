@@ -1,7 +1,7 @@
 /**
  * docxGenerator.js
  * Generates formatted .docx files using the docx npm package.
- * Handles both the optimised resume and the match analysis report.
+ * Handles both the optimized resume and the score & analytics report.
  */
 
 import {
@@ -10,7 +10,7 @@ import {
   WidthType, ShadingType, convertInchesToTwip,
 } from 'docx';
 
-// ─── Colour Constants ────────────────────────────────────────────────────────
+// ─── Color Constants ──────────────────────────────────────────────────────────
 const NAVY = '1F3864';
 const BLUE = '2E5DA6';
 const SUCCESS = '27AE60';
@@ -51,7 +51,7 @@ function bulletParagraph(text) {
   });
 }
 
-// ─── Helper: sanitise contact block ─────────────────────────────────────────
+// ─── Helper: sanitize contact block ──────────────────────────────────────────
 // Ensures name and email/phone are separated by " | " even if AI omits it.
 function sanitiseContact(contact) {
   return (contact || '').trim();
@@ -62,7 +62,7 @@ function stripEmDashes(text) {
   return (text || '').replace(/—/g, ',').replace(/–/g, '-');
 }
 
-// ─── Section name normalisation map ──────────────────────────────────────────
+// ─── Section name normalization map ───────────────────────────────────────────
 const SECTION_NAME_MAP = {
   'certifications':              'CERTIFICATIONS',
   'certifications & licences':   'CERTIFICATIONS',
@@ -90,36 +90,67 @@ function normaliseSectionName(raw) {
 export async function generateResumeDocx(headers, experience, addedSections = {}) {
   const children = [];
 
-  // ── Name / Title Header
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: headers.optimisedTitle || 'Professional',
-          bold: true,
-          color: NAVY,
-          size: 36,
-          font: 'Palatino Linotype',
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 120 },
-    })
-  );
+  // ── Resume Header: Name → LinkedIn → Job Title → Contact Info ──────────────
+  // Parse contact string: "Full Name | email | phone | location | linkedin"
+  const contactParts   = (headers.contact || '').split('|').map(p => p.trim()).filter(Boolean);
+  const candidateName  = contactParts[0] || '';
+  const linkedInPart   = contactParts.find(p => p.toLowerCase().includes('linkedin.com')) || '';
+  const otherContact   = contactParts
+    .filter(p => p !== candidateName && p !== linkedInPart)
+    .join(' | ');
 
-  // ── Contact Block
-  if (headers.contact) {
-    const contactText = sanitiseContact(headers.contact);
+  // 1. Candidate name — largest, Playfair Display
+  if (candidateName) {
     children.push(
       new Paragraph({
-        children: [
-          new TextRun({
-            text: contactText,
-            size: 18,
-            font: 'Calibri',
-            color: DARK_GREY,
-          }),
-        ],
+        children: [new TextRun({
+          text: candidateName,
+          bold: true, color: NAVY, size: 40,
+          font: 'Palatino Linotype',
+        })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 60 },
+      })
+    );
+  }
+
+  // 2. LinkedIn profile — if present
+  if (linkedInPart) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({
+          text: linkedInPart,
+          size: 17, font: 'Calibri', color: '2E5DA6',
+        })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 60 },
+      })
+    );
+  }
+
+  // 3. Job title — aligned to JD
+  if (headers.optimisedTitle) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({
+          text: headers.optimisedTitle,
+          bold: true, color: NAVY, size: 26,
+          font: 'Calibri',
+        })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+      })
+    );
+  }
+
+  // 4. Contact info — email, phone, location (everything except name and LinkedIn)
+  if (otherContact) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({
+          text: otherContact,
+          size: 18, font: 'Calibri', color: DARK_GREY,
+        })],
         alignment: AlignmentType.CENTER,
         spacing: { after: 240 },
       })
@@ -303,7 +334,7 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
 }
 
 // ─── Generate Analysis .docx ─────────────────────────────────────────────────
-export async function generateAnalysisDocx(analysis, companyName, jobTitle, sectionsWereAdded) {
+export async function generateAnalysisDocx(analysis, atsPreview, companyName, jobTitle, sectionsWereAdded) {
   const children = [];
 
   // ── Title
@@ -311,7 +342,7 @@ export async function generateAnalysisDocx(analysis, companyName, jobTitle, sect
     new Paragraph({
       children: [
         new TextRun({
-          text: 'Resume Match Analysis',
+          text: 'Score & Analytics Report',
           bold: true,
           color: NAVY,
           size: 36,
@@ -353,7 +384,7 @@ export async function generateAnalysisDocx(analysis, companyName, jobTitle, sect
           font: 'Calibri',
         }),
         new TextRun({
-          text: `  (${analysis.requirementsAnalysed || 0} requirements analysed)`,
+          text: `  (${analysis.requirementsAnalysed || 0} requirements analyzed)`,
           size: 20,
           font: 'Calibri',
           color: DARK_GREY,
@@ -380,7 +411,112 @@ export async function generateAnalysisDocx(analysis, companyName, jobTitle, sect
     );
   }
 
-  // ── Top Strengths
+  // ── ATS Dashboard (from atsPreview — shown when available) ──────────────────
+  if (atsPreview) {
+    children.push(...sectionHeading('ATS DASHBOARD'));
+
+    // Disclaimer
+    children.push(new Paragraph({
+      spacing: { before: 80, after: 160 },
+      shading: { fill: 'FFF9C4', type: ShadingType.CLEAR },
+      children: [new TextRun({
+        text: '⚠  Simulated ATS evaluation for self-assessment only. Actual ATS systems vary by employer.',
+        font: 'Calibri', size: 17, color: '7D6008', italics: true,
+      })],
+    }));
+
+    // Four metric cells as a table row
+    const dispBg = atsPreview.dispositionColor === 'green' ? 'DCFCE7'
+                 : atsPreview.dispositionColor === 'amber' ? 'FEF9C3' : 'FEE2E2';
+    const dispFg = atsPreview.dispositionColor === 'green' ? '15803D'
+                 : atsPreview.dispositionColor === 'amber' ? 'A16207' : 'B91C1C';
+
+    const metricCell = (label, value, bg = 'F9FAFB') => new TableCell({
+      shading: { fill: bg, type: ShadingType.CLEAR },
+      margins: { top: 120, bottom: 120, left: 160, right: 160 },
+      children: [
+        new Paragraph({ children: [new TextRun({ text: label, font: 'Calibri', size: 16, color: '9CA3AF', bold: true })] }),
+        new Paragraph({ children: [new TextRun({ text: String(value ?? '—'), font: 'Calibri', size: 28, bold: true, color: NAVY })] }),
+      ],
+    });
+
+    children.push(new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [2340, 2340, 2340, 2340],
+      rows: [new TableRow({ children: [
+        metricCell('ATS SCORE', `${atsPreview.atsScore ?? '—'} / 100`),
+        metricCell('KEYWORD MATCH', `${atsPreview.keywordMatch ?? '—'}%`),
+        metricCell('HARD REQS MET', `${atsPreview.hardReqsMet?.met ?? '—'} / ${atsPreview.hardReqsMet?.total ?? '—'}`),
+        metricCell('DISPOSITION', atsPreview.disposition ?? '—', dispBg),
+      ]})],
+    }));
+
+    // Summary line
+    if (atsPreview.summary) {
+      children.push(new Paragraph({
+        spacing: { before: 160, after: 80 },
+        children: [new TextRun({ text: atsPreview.summary, font: 'Calibri', size: 19, color: DARK_GREY, italics: true })],
+      }));
+    }
+
+    // Eligibility Checks table
+    if (atsPreview.eligibilityChecks?.length > 0) {
+      children.push(new Paragraph({ spacing: { before: 200, after: 80 },
+        children: [new TextRun({ text: 'Eligibility Checks', font: 'Calibri', size: 20, bold: true, color: NAVY })] }));
+
+      const resultColor = r => r === 'pass' ? SUCCESS : r === 'caution' ? WARNING : DANGER;
+      const eligRows = atsPreview.eligibilityChecks.map((chk, i) => new TableRow({
+        children: [
+          new TableCell({
+            shading: { fill: i % 2 === 0 ? 'FFFFFF' : 'F9FAFB', type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: chk.requirement || '', font: 'Calibri', size: 18, color: DARK_GREY })] })],
+          }),
+          new TableCell({
+            shading: { fill: i % 2 === 0 ? 'FFFFFF' : 'F9FAFB', type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: chk.evidence || '', font: 'Calibri', size: 18, color: DARK_GREY, italics: true })] })],
+          }),
+          new TableCell({
+            shading: { fill: i % 2 === 0 ? 'FFFFFF' : 'F9FAFB', type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: (chk.result || '').toUpperCase(), font: 'Calibri', size: 18, bold: true, color: resultColor(chk.result) })] })],
+          }),
+        ],
+      }));
+      const eligHeader = new TableRow({ tableHeader: true, children: [
+        new TableCell({ shading: { fill: NAVY, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Requirement', font: 'Calibri', size: 18, bold: true, color: 'FFFFFF' })] })] }),
+        new TableCell({ shading: { fill: NAVY, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Evidence', font: 'Calibri', size: 18, bold: true, color: 'FFFFFF' })] })] }),
+        new TableCell({ shading: { fill: NAVY, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          children: [new Paragraph({ children: [new TextRun({ text: 'Result', font: 'Calibri', size: 18, bold: true, color: 'FFFFFF' })] })] }),
+      ]});
+      children.push(new Table({
+        width: { size: 9360, type: WidthType.DXA }, columnWidths: [5200, 2960, 1200],
+        rows: [eligHeader, ...eligRows],
+      }));
+    }
+
+    // Scoring Breakdown
+    if (atsPreview.scoringBreakdown?.length > 0) {
+      children.push(new Paragraph({ spacing: { before: 200, after: 80 },
+        children: [new TextRun({ text: 'Scoring Breakdown', font: 'Calibri', size: 20, bold: true, color: NAVY })] }));
+      for (const dim of atsPreview.scoringBreakdown) {
+        const score = dim.score ?? 0;
+        const barColor = score >= 80 ? SUCCESS : score >= 50 ? WARNING : DANGER;
+        children.push(new Paragraph({
+          spacing: { before: 60, after: 40 },
+          children: [
+            new TextRun({ text: `${dim.dimension || ''}  `, font: 'Calibri', size: 18, color: DARK_GREY }),
+            new TextRun({ text: `${score}%`, font: 'Calibri', size: 18, bold: true, color: barColor }),
+          ],
+        }));
+      }
+    }
+  }
+
+    // ── Top Strengths
   if (analysis.strengths && analysis.strengths.length > 0) {
     children.push(...sectionHeading('Top Strengths'));
     for (const strength of analysis.strengths) {
@@ -573,8 +709,8 @@ export async function generateCoverLetterDocx(coverLetterText, companyName, jobT
     })
   );
 
-  // Body — split on newlines, detect markdown bullets
-  const lines = (coverLetterText || '').split('\n');
+  // Body — strip em-dashes then split on newlines, detect markdown bullets
+  const lines = stripEmDashes(coverLetterText || '').split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
 

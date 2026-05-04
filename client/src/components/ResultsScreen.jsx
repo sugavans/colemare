@@ -157,17 +157,39 @@ function ResumeTab({ headers, experience }) {
 }
 
 // ─── Match Analysis Tab ───────────────────────────────────────────────────────
-function AnalysisTab({ analysis, sectionsWereAdded, mc }) {
-  const requirements = analysis?.requirements  || [];
-  const gaps         = analysis?.gaps          || [];
-  const atsKeywords  = analysis?.atsKeywords   || null;
-  const gapPlan      = analysis?.gapActionPlan || [];
+// ─── Score & Analytics Tab ────────────────────────────────────────────────────
+// Unified tab combining ATS Preview + Match Analysis with 4 sub-views.
+// Disclaimer is shown prominently since ATS data is simulated.
+
+function ScoreAnalyticsTab({ analysis, atsPreview, sectionsWereAdded }) {
+  const [subTab, setSubTab] = React.useState('overview');
+
+  const requirements  = analysis?.requirements   || [];
+  const gaps          = analysis?.gaps           || [];
+  const atsKeywords   = analysis?.atsKeywords    || null;
+  const gapPlan       = analysis?.gapActionPlan  || [];
+  const eligibility   = atsPreview?.eligibilityChecks  || [];
+  const breakdown     = atsPreview?.scoringBreakdown   || [];
+
+  const TEAL   = '#0E7490';
+  const barColor = s => s >= 80 ? '#22C55E' : s >= 50 ? '#F59E0B' : '#EF4444';
+
+  const dispBg    = atsPreview?.dispositionColor === 'green' ? '#F0FDF4'
+                  : atsPreview?.dispositionColor === 'amber' ? '#FFFBEB' : '#FEF2F2';
+  const dispColor = atsPreview?.dispositionColor === 'green' ? '#15803D'
+                  : atsPreview?.dispositionColor === 'amber' ? '#B45309' : '#B91C1C';
+
+  const resultStyle = r => ({
+    pass:    { bg: 'bg-green-100', text: 'text-green-800', label: 'PASS'    },
+    fail:    { bg: 'bg-red-100',   text: 'text-red-800',   label: 'FAIL'    },
+    caution: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'CAUTION' },
+  }[r] || { bg: 'bg-gray-100', text: 'text-gray-600', label: (r || '').toUpperCase() });
 
   const statusColor = s => s === 'STRONG' ? 'text-green-600' : s === 'PARTIAL' ? 'text-amber-600' : 'text-red-600';
   const statusBg    = s => s === 'STRONG' ? 'bg-green-50 border-green-200' : s === 'PARTIAL' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
-  const barColor    = s => s === 'STRONG' ? 'bg-green-500' : s === 'PARTIAL' ? 'bg-amber-500' : 'bg-red-500';
+  const barBg       = s => s === 'STRONG' ? 'bg-green-500' : s === 'PARTIAL' ? 'bg-amber-500' : 'bg-red-500';
   const gapBorder   = p => p === 'HIGH' ? 'border-red-500' : p === 'MEDIUM' ? 'border-amber-500' : 'border-gray-400';
-  const gapBadge    = p => p === 'HIGH' ? 'badge-red'  : p === 'MEDIUM' ? 'badge-amber' : 'badge-grey';
+  const gapBadge    = p => p === 'HIGH' ? 'badge-red' : p === 'MEDIUM' ? 'badge-amber' : 'badge-grey';
 
   const dispositionLabel = d => ({
     LEAD_WITH_CONFIDENCE:  { text: 'Lead with confidence', bg: 'bg-green-100 text-green-800' },
@@ -176,122 +198,264 @@ function AnalysisTab({ analysis, sectionsWereAdded, mc }) {
     OMIT:                  { text: 'Omit — prep interview', bg: 'bg-red-100 text-red-800' },
   }[d] || null);
 
+  // Next step derivation from data we already have
+  const highGaps = gaps.filter(g => g.priority === 'HIGH').length;
+  const nextStep = highGaps > 0
+    ? `Address ${highGaps} high-priority gap${highGaps > 1 ? 's' : ''} before submitting. See the Gaps tab for interview prep sentences.`
+    : gapPlan.length > 0
+    ? `Review the gap action plan — ${gapPlan.length} item${gapPlan.length > 1 ? 's' : ''} need preparation.`
+    : 'Your resume is well-aligned. Review keywords to ensure ATS compatibility.';
+
+  const subTabs = [
+    { id: 'overview',    label: '📋 Overview' },
+    { id: 'eligibility', label: '✅ Eligibility' },
+    { id: 'gaps',        label: '⚠️ Gaps' },
+    { id: 'keywords',    label: '🔑 Keywords' },
+  ];
+
   return (
-    <div className="space-y-6">
-      {sectionsWereAdded && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-card text-sm text-amber-700 fade-in">
-          <strong>Note:</strong> Some sections were missing from your original resume. Match scores reflect the resume after your additions.
-        </div>
-      )}
+    <div className="space-y-4">
 
-      {/* ATS Keyword Audit — first */}
-      {atsKeywords && (atsKeywords.present?.length > 0 || atsKeywords.missing?.length > 0) && (
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>ATS Keyword Audit</h3>
-          <div className="p-4 rounded-card border bg-white space-y-3">
-            {atsKeywords.present?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-green-700 mb-1">✅ Present in resume</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {atsKeywords.present.map((kw, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-green-50 border border-green-200 rounded text-xs text-green-800">{kw}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {atsKeywords.missing?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-red-700 mb-1">❌ Missing from resume</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {atsKeywords.missing.map((kw, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-red-50 border border-red-200 rounded text-xs text-red-800">{kw}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Disclaimer */}
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-card text-xs text-amber-700">
+        ⚠️ <strong>Simulation notice:</strong> ATS scores and eligibility checks are AI-simulated for self-assessment only. They do not represent the output of any real employer ATS system. Actual screening results vary by employer, role, and ATS platform.
+        {sectionsWereAdded && <span className="ml-2">· Match scores reflect the resume <strong>after your additions</strong>.</span>}
+      </div>
 
-      {/* Gap Action Plan — second */}
-      {gapPlan.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>Gap Action Plan</h3>
-          <div className="space-y-3">
-            {gapPlan.map((item, i) => (
-              <div key={i} className="p-4 rounded-card border border-l-4 border-amber-400 bg-amber-50" style={{ borderLeftWidth: '4px' }}>
-                <p className="text-sm font-semibold text-gray-800 mb-1">{item.item}</p>
-                {item.disposition && dispositionLabel(item.disposition) && (
-                  <span className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-medium ${dispositionLabel(item.disposition).bg}`}>
-                    {dispositionLabel(item.disposition).text}
-                  </span>
-                )}
-                {item.interviewPrep && (
-                  <p className="text-xs text-gray-600 italic">🎤 Interview prep: {item.interviewPrep}</p>
-                )}
+      {/* Persistent header — scorecards + next step */}
+      <div className="bg-white rounded-card shadow-card p-4 space-y-4">
+        {atsPreview ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">ATS Score</p>
+                <p className="text-2xl font-bold text-navy">{atsPreview.atsScore ?? '—'}<span className="text-sm text-gray-400 font-normal"> /100</span></p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Requirements Analysis — third */}
-      <div>
-        <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>Requirements Analysis</h3>
-        <div className="space-y-3">
-          {requirements.map((req, i) => (
-            <div key={i} className={`p-4 rounded-card border ${statusBg(req.status)}`}>
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800">{req.name}</p>
-                  {req.description && <p className="text-xs text-gray-500 mt-0.5">{req.description}</p>}
-                </div>
-                <div className="text-right shrink-0">
-                  <p className={`text-lg font-bold ${statusColor(req.status)}`}>{req.score}%</p>
-                  <span className={`text-xs font-bold ${statusColor(req.status)}`}>
-                    {req.status === 'GAP' && req.score === 0 ? 'NO MATCH' : req.status}
-                  </span>
-                </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Keyword Match</p>
+                <p className="text-2xl font-bold text-navy">{atsPreview.keywordMatch ?? '—'}<span className="text-sm text-gray-400 font-normal">%</span></p>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-1 mb-2">
-                <div
-                  className={`h-1 rounded-full transition-all duration-500 ${barColor(req.status)}`}
-                  style={{ width: `${req.score}%` }}
-                />
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Hard Reqs Met</p>
+                <p className="text-2xl font-bold text-navy">
+                  {atsPreview.hardReqsMet?.met ?? '—'}<span className="text-sm text-gray-400 font-normal"> /{atsPreview.hardReqsMet?.total ?? '—'}</span>
+                </p>
               </div>
-              {req.coveredBy && req.coveredBy !== 'Not covered' && (
-                <p className="text-xs text-gray-600"><strong>Covered by:</strong> {req.coveredBy}</p>
-              )}
-              {req.suggestion && req.suggestion !== 'Well covered — no action needed' && (
-                <p className="text-xs text-gray-500 mt-1 italic">💡 {req.suggestion}</p>
-              )}
-              {req.disposition && dispositionLabel(req.disposition) && (
-                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${dispositionLabel(req.disposition).bg}`}>
-                  {dispositionLabel(req.disposition).text}
-                </span>
-              )}
+              <div className="rounded-lg p-3 border" style={{ backgroundColor: dispBg }}>
+                <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: dispColor }}>Disposition</p>
+                <p className="text-sm font-bold leading-tight" style={{ color: dispColor }}>{atsPreview.disposition ?? '—'}</p>
+              </div>
             </div>
-          ))}
+          </>
+        ) : (
+          <p className="text-sm text-gray-400 italic">ATS scoring not available for this run.</p>
+        )}
+        {/* Next step callout */}
+        <div className="flex gap-3 items-start bg-gradient-to-r from-blue-50 to-green-50 border border-blue-100 rounded-lg p-3">
+          <span className="text-base flex-shrink-0 mt-0.5">🎯</span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: TEAL }}>Your next step</p>
+            <p className="text-xs text-gray-700 leading-relaxed">{nextStep}</p>
+          </div>
         </div>
       </div>
 
-      {/* Skill Gaps — fourth */}
-      {gaps.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-wide mb-3" style={{ color: mc.primary }}>Skill Gaps & Recommendations</h3>
-          <div className="space-y-3">
-            {gaps.map((gap, i) => (
-              <div key={i} className={`p-4 rounded-card border border-l-4 bg-white ${gapBorder(gap.priority)}`} style={{ borderLeftWidth: '4px' }}>
-                <div className="flex items-start gap-3">
-                  <span className={`${gapBadge(gap.priority)} shrink-0`}>{gap.priority}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{gap.description}</p>
-                    {gap.suggestion && <p className="text-xs text-gray-500 mt-1">💡 {gap.suggestion}</p>}
+      {/* Sub-navigation */}
+      <div className="flex gap-1 p-1 bg-white rounded-card shadow-card">
+        {subTabs.map(t => (
+          <button key={t.id} onClick={() => setSubTab(t.id)}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${ subTab === t.id ? 'text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50' }`}
+            style={subTab === t.id ? { backgroundColor: TEAL } : {}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Overview sub-tab ── */}
+      {subTab === 'overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {breakdown.length > 0 && (
+            <div className="bg-white rounded-card shadow-card p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide mb-4" style={{ color: TEAL }}>Scoring Breakdown</h3>
+              <div className="space-y-3">
+                {breakdown.map((dim, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-xs text-gray-600">{dim.dimension}</span>
+                      <span className="text-xs font-bold" style={{ color: barColor(dim.score) }}>{dim.score}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full" style={{ width: `${dim.score}%`, backgroundColor: barColor(dim.score) }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {requirements.length > 0 && (
+            <div className="bg-white rounded-card shadow-card p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: TEAL }}>Requirements Summary</h3>
+              <div className="space-y-1">
+                {['STRONG','PARTIAL','GAP'].map(status => {
+                  const reqs = requirements.filter(r => r.status === status);
+                  if (!reqs.length) return null;
+                  const colors = { STRONG: '#15803D', PARTIAL: '#B45309', GAP: '#B91C1C' };
+                  const bgs    = { STRONG: '#F0FDF4', PARTIAL: '#FFFBEB', GAP: '#FEF2F2'  };
+                  return (
+                    <div key={status} className="mb-2">
+                      <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: colors[status] }}>
+                        {status === 'STRONG' ? 'Strong' : status === 'PARTIAL' ? 'Partial' : 'Gaps'}
+                      </p>
+                      {reqs.map((r, i) => (
+                        <div key={i} className="flex justify-between items-center px-2 py-1 rounded mb-1" style={{ backgroundColor: bgs[status] }}>
+                          <span className="text-xs text-gray-700">{r.name}</span>
+                          <span className="text-xs font-bold" style={{ color: colors[status] }}>{r.score}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Eligibility sub-tab ── */}
+      {subTab === 'eligibility' && (
+        <div className="bg-white rounded-card shadow-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+            <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: TEAL }}>Eligibility Checks</h3>
+            {eligibility.length > 0 && (
+              <span className="text-xs text-gray-400">{eligibility.filter(c => c.result === 'pass').length} of {eligibility.length} passed</span>
+            )}
+          </div>
+          {eligibility.length > 0 ? (
+            <div className="divide-y divide-gray-50">
+              {eligibility.map((chk, i) => {
+                const s = resultStyle(chk.result);
+                return (
+                  <div key={i} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${chk.result === 'pass' ? 'bg-green-500' : chk.result === 'fail' ? 'bg-red-500' : 'bg-amber-400'}`} />
+                      <span className="text-sm text-gray-700 truncate">{chk.requirement}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs text-gray-400 text-right max-w-32 truncate">{chk.evidence}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${s.bg} ${s.text}`}>{s.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="p-4 text-sm text-gray-400 italic">Eligibility data not available for this run.</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Gaps sub-tab ── */}
+      {subTab === 'gaps' && (
+        <div className="space-y-4">
+          {gapPlan.length > 0 && (
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: TEAL }}>Gap Action Plan</h3>
+              <div className="space-y-3">
+                {gapPlan.map((item, i) => (
+                  <div key={i} className="p-4 rounded-card border border-l-4 border-amber-400 bg-amber-50">
+                    <p className="text-sm font-semibold text-gray-800 mb-1">{item.item}</p>
+                    {item.disposition && dispositionLabel(item.disposition) && (
+                      <span className={`inline-block mb-2 px-2 py-0.5 rounded text-xs font-medium ${dispositionLabel(item.disposition).bg}`}>
+                        {dispositionLabel(item.disposition).text}
+                      </span>
+                    )}
+                    {item.interviewPrep && (
+                      <p className="text-xs text-gray-600 italic">🎤 Interview prep: {item.interviewPrep}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {gaps.length > 0 && (
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: TEAL }}>Skill Gaps & Recommendations</h3>
+              <div className="space-y-3">
+                {gaps.map((gap, i) => (
+                  <div key={i} className={`p-4 rounded-card border border-l-4 bg-white ${gapBorder(gap.priority)}`}>
+                    <div className="flex items-start gap-3">
+                      <span className={`${gapBadge(gap.priority)} shrink-0`}>{gap.priority}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">{gap.description}</p>
+                        {gap.suggestion && <p className="text-xs text-gray-500 mt-1">💡 {gap.suggestion}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {gapPlan.length === 0 && gaps.length === 0 && (
+            <p className="text-sm text-gray-400 italic p-4 bg-white rounded-card shadow-card">No significant gaps identified.</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Keywords sub-tab ── */}
+      {subTab === 'keywords' && (
+        <div className="space-y-3">
+          {atsKeywords && (atsKeywords.present?.length > 0 || atsKeywords.missing?.length > 0) ? (
+            <div className="bg-white rounded-card shadow-card p-4 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: TEAL }}>ATS Keyword Audit</h3>
+              {atsKeywords.present?.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-green-700 mb-2 uppercase tracking-wide">✅ Present in resume ({atsKeywords.present.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {atsKeywords.present.map((kw, i) => <span key={i} className="px-2 py-0.5 bg-green-50 border border-green-200 rounded text-xs text-green-800">{kw}</span>)}
                   </div>
                 </div>
+              )}
+              {atsKeywords.missing?.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-red-700 mb-2 uppercase tracking-wide">❌ Missing from resume ({atsKeywords.missing.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {atsKeywords.missing.map((kw, i) => <span key={i} className="px-2 py-0.5 bg-red-50 border border-red-200 rounded text-xs text-red-800">{kw}</span>)}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic p-4 bg-white rounded-card shadow-card">Keyword audit not available for this run.</p>
+          )}
+          {requirements.length > 0 && (
+            <div className="bg-white rounded-card shadow-card p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: TEAL }}>Requirements Analysis</h3>
+              <div className="space-y-2">
+                {requirements.map((req, i) => (
+                  <div key={i} className={`p-3 rounded-lg border ${statusBg(req.status)}`}>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-xs font-semibold text-gray-800">{req.name}</p>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className={`text-sm font-bold ${statusColor(req.status)}`}>{req.score}%</span>
+                        <span className={`text-xs font-bold ${statusColor(req.status)}`}>{req.status}</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1 mb-1">
+                      <div className={`h-1 rounded-full ${barBg(req.status)}`} style={{ width: `${req.score}%` }} />
+                    </div>
+                    {req.coveredBy && req.coveredBy !== 'Not covered' && (
+                      <p className="text-xs text-gray-500">Covered by: {req.coveredBy}</p>
+                    )}
+                    {req.disposition && dispositionLabel(req.disposition) && (
+                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${dispositionLabel(req.disposition).bg}`}>
+                        {dispositionLabel(req.disposition).text}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -300,7 +464,7 @@ function AnalysisTab({ analysis, sectionsWereAdded, mc }) {
 
 // ─── Cover Letter Tab ─────────────────────────────────────────────────────────
 function parseCoverLetterLine(line, i) {
-  const trimmed = line.trim();
+  const trimmed = line.trim().replace(/—/g, ',').replace(/–/g, '-');
   const boldBullet = trimmed.match(/^-\s+\*\*(.+?)\*\*(.*)$/);
   const plainBullet = !boldBullet && trimmed.match(/^-\s+(.+)$/);
   if (boldBullet) {
@@ -361,22 +525,32 @@ function DownloadBar({ exportData, onDownload }) {
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {(exportData.resumeData || exportData.resumeUrl) && (
-        <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName)} className="btn-opt flex items-center gap-2 text-sm py-2 px-4">
-          ⬇ Download Resume (.docx)
-        </button>
-      )}
-      {(exportData.analysisData || exportData.analysisUrl) && (
-        <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-match flex items-center gap-2 text-sm py-2 px-4">
-          ⬇ Download Analysis (.docx)
-        </button>
-      )}
-      {(exportData.coverLetterData || exportData.coverLetterUrl) && (
-        <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)} className="btn-cl flex items-center gap-2 text-sm py-2 px-4">
-          ⬇ Download Cover Letter (.docx)
-        </button>
-      )}
+    <div className="flex items-center justify-between flex-wrap gap-3 p-4"
+      style={{ borderLeft: '4px solid #0E7490' }}>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: '#0E7490' }}>Your outputs are ready</p>
+        <p className="text-xs text-gray-400">Download any document as a formatted Word file (.docx)</p>
+      </div>
+      <div className="flex gap-2 p-1 bg-gray-50 border border-gray-200 rounded-lg flex-wrap">
+        {(exportData.analysisData || exportData.analysisUrl) && (
+          <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)}
+            className="btn-match flex items-center gap-2 text-sm py-2 px-4" title="Download Score & Analytics (.docx)">
+            ⬇ Score & Analytics
+          </button>
+        )}
+        {(exportData.resumeData || exportData.resumeUrl) && (
+          <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName)}
+            className="btn-opt flex items-center gap-2 text-sm py-2 px-4" title="Download Optimized Resume (.docx)">
+            ⬇ Resume
+          </button>
+        )}
+        {(exportData.coverLetterData || exportData.coverLetterUrl) && (
+          <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)}
+            className="btn-cl flex items-center gap-2 text-sm py-2 px-4" title="Download Cover Letter (.docx)">
+            ⬇ Cover Letter
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -385,8 +559,10 @@ function DownloadBar({ exportData, onDownload }) {
 export default function ResultsScreen({ results, exportData, scanData, onReset, onGoBack, onOptimize, mode = 'optimize' }) {
   const { headers, experience, analysis, companyName, jobTitle, sectionsWereAdded, coverLetter } = results;
 
-  // Default tab per mode
-  const defaultTab = mode === 'match' ? 'analysis' : mode === 'coverletter' ? 'coverletter' : 'resume';
+  const atsPreview = results?.atsPreview || null;
+
+  // Score & Analytics first for optimize+match, cover letter for coverletter mode
+  const defaultTab = mode === 'coverletter' ? 'coverletter' : 'scoreanalytics';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Accepts either a base64 string (production) or a URL (local dev fallback)
@@ -410,19 +586,27 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
     if (a.href.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   };
 
-  // Build tab list — Resume tab only for optimize mode
+  // Tabs: Score & Analytics first, then Resume (optimize only), then Cover Letter
   const tabs = [];
-  if (mode === 'optimize') tabs.push({ id: 'resume',      label: '📄 Optimized Resume' });
-  if (analysis)            tabs.push({ id: 'analysis',    label: '📊 Match Analysis' });
-  if (coverLetter)         tabs.push({ id: 'coverletter', label: '✉️ Cover Letter' });
+  if (analysis || atsPreview)  tabs.push({ id: 'scoreanalytics', label: '📊 Score & Analytics', color: '#0E7490' });
+  if (mode === 'optimize')     tabs.push({ id: 'resume',         label: '📄 Optimized Resume',  color: '#1F3864' });
+  if (coverLetter)             tabs.push({ id: 'coverletter',    label: '✉️ Cover Letter',       color: '#6D28D9' });
 
-  // Workflow color palette — matches button colors on input screen
+  // Per-tab color
+  const tabColor = (id) => ({ scoreanalytics: '#0E7490', resume: '#1F3864', coverletter: '#6D28D9' }[id] || '#1F3864');
+
   const modeColors = {
-    match:       { primary: '#0E7490', light: '#E0F2F7', border: '#0E7490', label: 'teal'   },
-    coverletter: { primary: '#6D28D9', light: '#EDE9FE', border: '#6D28D9', label: 'violet' },
-    optimize:    { primary: '#1F3864', light: '#EAF4EA', border: '#1F3864', label: 'navy'   },
+    match:       { primary: '#0E7490' },
+    coverletter: { primary: '#6D28D9' },
+    optimize:    { primary: '#1F3864' },
   };
   const mc = modeColors[mode] || modeColors.optimize;
+
+  // Job context bar
+  const jobLocation        = scanData?.jobLocation || 'Not available';
+  const workType           = scanData?.workType    || 'Not available';
+  const workBadge          = { Remote: { bg: '#DCFCE7', color: '#15803D' }, Hybrid: { bg: '#DBEAFE', color: '#1D4ED8' }, 'On-site': { bg: '#FEF9C3', color: '#A16207' } }[workType] || { bg: '#F3F4F6', color: '#6B7280' };
+  const candidateName      = (headers?.contact || '').split('|')[0].trim() || '';
 
   // Action bar config for match / coverletter modes
   const actionBar = mode === 'match' ? {
@@ -434,24 +618,14 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
   return (
     <div className="px-4 py-8 md:px-8 max-w-4xl mx-auto">
 
-      {/* ── Top action bar — all modes ──────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        {actionBar && (
-          <>
-            <button onClick={onGoBack} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
-              ← Back to Inputs
-            </button>
-            <button onClick={onOptimize} className="btn-opt flex items-center gap-2 text-sm py-2 px-4">
-              {actionBar.optimizeLabel}
-            </button>
-          </>
-        )}
-        <button onClick={onReset} className="btn-ghost text-gray-500 text-sm py-2 px-4">
-          🔄 Start Over
+      {/* ── Start Over — top right ─────────────────────────────────────────── */}
+      <div className="flex justify-end mb-3">
+        <button onClick={onReset} className="btn-ghost text-gray-400 text-sm py-1.5 px-3 flex items-center gap-1">
+          ↩ Start Over
         </button>
       </div>
 
-      {/* Score banner — shown for optimize and match modes */}
+      {/* Score banner */}
       {analysis && (
         <ScoreBanner
           analysis={analysis}
@@ -464,10 +638,10 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
 
       {/* Cover letter header (cover letter only mode) */}
       {mode === 'coverletter' && !analysis && (
-        <div className="card mb-6 flex items-center gap-4">
+        <div className="card mb-4 flex items-center gap-4">
           <span className="text-3xl">✉️</span>
           <div>
-            <h2 className="font-display text-xl font-bold" style={{ color: mc.primary }}>Cover Letter</h2>
+            <h2 className="font-display text-xl font-bold" style={{ color: '#6D28D9' }}>Cover Letter</h2>
             {companyName && companyName !== 'Unknown_Company' && (
               <p className="text-sm text-gray-500">{jobTitle} at {companyName}</p>
             )}
@@ -475,48 +649,108 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
         </div>
       )}
 
-      {/* Download bar — only for optimize mode */}
-      {mode === 'optimize' && (
-        <div className="card mb-6">
+      {/* ── Persistent Job Context Bar ─────────────────────────────────────── */}
+      <div className="rounded-card mb-4 px-5 py-3 flex items-center justify-between flex-wrap gap-3"
+        style={{ background: '#1F3864' }}>
+        <div className="flex items-center gap-4 flex-wrap">
+          {jobTitle && jobTitle !== 'Unknown_Role' && (
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,.45)' }}>Role</div>
+              <div className="text-sm font-semibold text-white">{jobTitle}</div>
+            </div>
+          )}
+          {companyName && companyName !== 'Unknown_Company' && (
+            <>
+              <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,.2)' }} />
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,.45)' }}>Company</div>
+                <div className="text-sm font-semibold text-white">{companyName}</div>
+              </div>
+            </>
+          )}
+          <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,.2)' }} />
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,.45)' }}>Location</div>
+            <div className="text-sm font-semibold text-white flex items-center gap-1.5">
+              {jobLocation}
+              {workType !== 'Not available' && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: workBadge.bg, color: workBadge.color }}>
+                  {workType}
+                </span>
+              )}
+            </div>
+          </div>
+          {candidateName && (
+            <>
+              <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,.2)' }} />
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,.45)' }}>Candidate</div>
+                <div className="text-sm font-semibold text-white flex items-center gap-1">
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
+                  {candidateName}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        {analysis && (
+          <span className="text-xs font-bold px-3 py-1 rounded-full"
+            style={{ background: analysis.overallScore >= 80 ? '#22C55E' : analysis.overallScore >= 60 ? '#F59E0B' : '#EF4444', color: '#fff' }}>
+            {analysis.overallScore}% Match
+          </span>
+        )}
+      </div>
+
+      {/* ── Download bar (optimize + match) ───────────────────────────────── */}
+      {(mode === 'optimize' || mode === 'match') && (
+        <div className="card mb-4">
           <DownloadBar exportData={exportData} onDownload={handleDownload} />
         </div>
       )}
 
-      {/* Match-only download */}
-      {mode === 'match' && (exportData?.analysisData || exportData?.analysisUrl) && (
-        <div className="card mb-6">
-          <button onClick={() => handleDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)} className="btn-match flex items-center gap-2 text-sm py-2 px-4">
-            ⬇ Download Analysis (.docx)
+      {/* Back to Inputs + Upgrade CTA (match/coverletter modes) */}
+      {actionBar && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <button onClick={onGoBack} className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+            ← Back to Inputs
+          </button>
+          <button onClick={onOptimize} className="btn-opt flex items-center gap-2 text-sm py-2 px-4">
+            {actionBar.optimizeLabel}
           </button>
         </div>
       )}
 
-      {/* Tabs */}
+      {/* ── Tabs ──────────────────────────────────────────────────────────── */}
       {tabs.length > 1 && (
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex border-b border-gray-200 mb-4">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                activeTab === tab.id ? 'border-transparent text-gray-800' : 'border-transparent text-gray-400 hover:text-gray-600'
-              }`}
-              style={activeTab === tab.id ? { borderBottomColor: mc.primary, color: mc.primary } : {}}
+              className="flex items-center gap-1.5 px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px"
+              style={activeTab === tab.id
+                ? { borderBottomColor: tab.color, color: tab.color, background: `${tab.color}0a`, borderRadius: '6px 6px 0 0' }
+                : { borderBottomColor: 'transparent', color: '#9CA3AF' }}
             >
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: tab.color, display: 'inline-block', opacity: activeTab === tab.id ? 1 : 0.4 }} />
               {tab.label}
             </button>
           ))}
         </div>
       )}
 
-      {/* Tab content */}
+      {/* ── Tab content ───────────────────────────────────────────────────── */}
       <div className="fade-in">
-        {activeTab === 'resume'      && <ResumeTab headers={headers} experience={experience} />}
-        {activeTab === 'analysis'    && <AnalysisTab analysis={analysis} sectionsWereAdded={sectionsWereAdded} mc={mc} />}
-        {activeTab === 'coverletter' && <CoverLetterTab coverLetter={coverLetter} onDownload={handleDownload} exportData={exportData} />}
+        {activeTab === 'scoreanalytics' && (
+          <ScoreAnalyticsTab
+            analysis={analysis}
+            atsPreview={atsPreview}
+            sectionsWereAdded={sectionsWereAdded}
+          />
+        )}
+        {activeTab === 'resume'         && <ResumeTab headers={headers} experience={experience} />}
+        {activeTab === 'coverletter'    && <CoverLetterTab coverLetter={coverLetter} onDownload={handleDownload} exportData={exportData} />}
       </div>
-
-
 
       <Footer />
     </div>

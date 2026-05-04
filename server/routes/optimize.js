@@ -1,7 +1,7 @@
 /**
  * routes/optimize.js
  *
- * POST /api/scan        — Call 0: section detection + metadata  (Haiku)
+ * POST /api/scan        — Haiku: section detection + metadata extraction
  * POST /api/optimize    — Calls 1–4: optimisation pipeline SSE  (Sonnet 4.6)
  * POST /api/export      — Generate .docx files + return download URLs
  * POST /api/match-only  — Match analysis on original resume     (Haiku + Sonnet)
@@ -25,6 +25,7 @@ import {
   OPTIMISE_EXPERIENCE_SYSTEM_PROMPT,
   MATCH_ANALYSIS_SYSTEM_PROMPT,
   COVER_LETTER_SYSTEM_PROMPT,
+  ATS_PREVIEW_SYSTEM_PROMPT,
   buildScanUserPrompt,
   assembleOptimisedResumeText,
 } from '../../shared/prompts.js';
@@ -130,9 +131,9 @@ router.post('/scan', async (req, res) => {
   if (!resumeText || !jobDescription) {
     return res.status(400).json({ error: 'resumeText and jobDescription are required.' });
   }
-  console.log('\n════════════════════════════════');
-  console.log(' Call 0  │ Haiku  │ Scan + meta');
-  console.log('════════════════════════════════');
+  console.log('\n══════════════════════════════════════');
+  console.log(' Call 0  │ Haiku  │ Section scan + metadata');
+  console.log('══════════════════════════════════════');
   try {
     const raw = await callClaude({
       model: HAIKU, systemPrompt: SCAN_SYSTEM_PROMPT, maxTokens: 2048, label: 'Call 0',
@@ -170,9 +171,9 @@ router.post('/optimize', async (req, res) => {
     }
   }
 
-  console.log('\n════════════════════════════════════════════════════════');
-  console.log(' Calls 1–4  │ Sonnet 4.6  │ Optimisation pipeline');
-  console.log('════════════════════════════════════════════════════════');
+  console.log('\n═══════════════════════════════════════════════════════════════');
+  console.log(' Calls 1–5  │ Sonnet 4.6 (1–4) + Haiku (5)  │ Optimise + ATS');
+  console.log('═══════════════════════════════════════════════════════════════');
 
   try {
     // Step 3: brief UX pause while "Analyzing inputs"
@@ -228,14 +229,15 @@ router.post('/optimize', async (req, res) => {
 
     // ── Call 3: Match analysis ────────────────────────────────────────────────
     emit(res, 'step', { step: 6, status: 'active' });
+    // Hoist optimizedText here so Call 5 (ATS preview) can use it too
+    const optimisedText = assembleOptimisedResumeText(headers, experienceData);
     let analysis;
     try {
-      const optimisedText = assembleOptimisedResumeText(headers, experienceData);
       const raw = await callClaude({
         model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 8000, label: 'Call 3 / analysis',
         contentBlocks: [
           { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `OPTIMISED RESUME:\n---\n${optimisedText}\n---\n\nAnalyse how well the optimised resume matches this job description. Return only valid JSON.`, cache: false },
+          { text: `OPTIMIZED RESUME:\n---\n${optimisedText}\n---\n\nAnalyze how well the optimized resume matches this job description. Return only valid JSON.`, cache: false },
         ],
       });
       analysis = safeParseJSON(raw);
@@ -245,18 +247,28 @@ router.post('/optimize', async (req, res) => {
     }
     emit(res, 'step', { step: 6, status: 'complete' });
 
-    // ── Call 4: Cover letter (non-blocking) ───────────────────────────────────
+    // ── Calls 4 + 5: Cover letter (Sonnet) + ATS Preview (Haiku) — parallel ─────
     emit(res, 'step', { step: 7, status: 'active' });
-    let coverLetter = null;
-    try {
-      coverLetter = await callClaude({
+    const [clResult, atsResult] = await Promise.allSettled([
+      // Call 4: Cover letter (Sonnet)
+      callClaude({
         model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: 1500, label: 'Call 4 / cover-letter',
         contentBlocks: [
           { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
           { text: `RESUME:\n---\n${fullResumeText}\n---\n\nDraft a cover letter following the system prompt instructions. Return plain text only.`, cache: false },
         ],
-      });
-    } catch { /* non-blocking — pipeline continues without cover letter */ }
+      }),
+      // Call 5: ATS Preview (Haiku — cheaper, runs in parallel)
+      callClaude({
+        model: HAIKU, systemPrompt: ATS_PREVIEW_SYSTEM_PROMPT, maxTokens: 1400, label: 'Call 5 / ats-preview',
+        contentBlocks: [
+          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
+          { text: `OPTIMIZED RESUME:\n---\n${optimisedText}\n---\n\nEvaluate this resume against the job description now.`, cache: false },
+        ],
+      }),
+    ]);
+    const coverLetter = clResult.status  === 'fulfilled' ? clResult.value  : null;
+    const atsPreview  = atsResult.status === 'fulfilled' ? safeParseJSON(atsResult.value) : null;
     emit(res, 'step', { step: 7, status: 'complete' });
 
     console.log(' Pipeline complete ✓\n');
@@ -266,6 +278,7 @@ router.post('/optimize', async (req, res) => {
       experience:        experienceData,
       analysis,
       coverLetter,
+      atsPreview,
       companyName:       companyName || 'Unknown_Company',
       jobTitle:          jobTitle    || 'Unknown_Role',
       sectionsWereAdded: !!sectionContextNote,
@@ -283,7 +296,7 @@ router.post('/optimize', async (req, res) => {
 // Documents are generated in memory and returned as base64 strings.
 // No filesystem writes — works on ephemeral platforms like Railway and Vercel.
 router.post('/export', async (req, res) => {
-  const { headers, experience, analysis, companyName, jobTitle, sectionsWereAdded, coverLetter } = req.body;
+  const { headers, experience, analysis, atsPreview, companyName, jobTitle, sectionsWereAdded, coverLetter } = req.body;
   try {
     const safeCompany = (companyName || 'Company').replace(/[/\\:*?"<>|]/g, '_').trim();
     const payload     = {};
@@ -291,7 +304,7 @@ router.post('/export', async (req, res) => {
     await Promise.all([
       analysis && (async () => {
         const fn  = buildFileName(companyName, jobTitle, 'Analysis');
-        const buf = await generateAnalysisDocx(analysis, companyName, jobTitle, sectionsWereAdded);
+        const buf = await generateAnalysisDocx(analysis, atsPreview, companyName, jobTitle, sectionsWereAdded);
         payload.analysisData     = buf.toString('base64');
         payload.analysisFileName = fn;
       })(),
@@ -333,22 +346,40 @@ router.post('/match-only', async (req, res) => {
     emit(res, 'step', { step: 1, status: 'complete' });
 
     emit(res, 'step', { step: 2, status: 'active' });
-    let analysis;
-    try {
-      const raw = await callClaude({
+    // Run Sonnet analysis + Haiku ATS preview in parallel — same pattern as optimize Calls 4+5
+    const [analysisResult, atsResult] = await Promise.allSettled([
+      callClaude({
         model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 8000, label: 'match-only/analysis',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---\n\nRESUME (original, unoptimised):\n---\n${resumeText}\n---\n\nAnalyse how well this resume matches the job description. Return only valid JSON.`, cache: false },
+          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
+          { text: `RESUME (original, unoptimized):\n---\n${resumeText}\n---`, cache: true },
+          { text: 'Analyse how well this resume matches the job description. Return only valid JSON.', cache: false },
         ],
-      });
-      analysis = safeParseJSON(raw);
-    } catch (err) {
-      emit(res, 'error', { message: err.message?.includes('parse') ? 'Could not parse match analysis. Please try again.' : 'Failed to run match analysis. Please try again.' });
+      }),
+      callClaude({
+        model: HAIKU, systemPrompt: ATS_PREVIEW_SYSTEM_PROMPT, maxTokens: 1400, label: 'match-only/ats-preview',
+        contentBlocks: [
+          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
+          { text: `RESUME (original, unoptimized):\n---\n${resumeText}\n---`, cache: true },
+          { text: 'Evaluate this resume against the job description now.', cache: false },
+        ],
+      }),
+    ]);
+    if (analysisResult.status === 'rejected') {
+      emit(res, 'error', { message: 'Failed to run match analysis. Please try again.' });
       return res.end();
     }
+    let analysis, atsPreview;
+    try {
+      analysis = safeParseJSON(analysisResult.value);
+    } catch (err) {
+      emit(res, 'error', { message: 'Could not parse match analysis. Please try again.' });
+      return res.end();
+    }
+    atsPreview = atsResult.status === 'fulfilled' ? safeParseJSON(atsResult.value) : null;
     emit(res, 'step', { step: 2, status: 'complete' });
     emit(res, 'step', { step: 3, status: 'complete' });
-    emit(res, 'result', { analysis, companyName, jobTitle, sectionsWereAdded: false });
+    emit(res, 'result', { analysis, atsPreview, companyName, jobTitle, sectionsWereAdded: false });
 
   } catch (err) {
     console.error('[/api/match-only] Unhandled error:', err.message);
@@ -376,10 +407,11 @@ router.post('/cover-letter', async (req, res) => {
     try {
       coverLetter = await callClaude({
         model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: 1500, label: 'cover-letter/draft',
-        contentBlocks: [{
-          text: `RESUME:\n---\n${resumeText}\n---\n\nJOB DESCRIPTION:\n---\n${jobDescription}\n---\n\nDraft a cover letter following the system prompt instructions. Return plain text only.`,
-          cache: false,
-        }],
+        contentBlocks: [
+          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
+          { text: `RESUME:\n---\n${resumeText}\n---`, cache: true },
+          { text: 'Draft a cover letter following the system prompt instructions. Return plain text only.', cache: false },
+        ],
       });
     } catch {
       emit(res, 'error', { message: 'Failed to draft cover letter. Please try again.' });

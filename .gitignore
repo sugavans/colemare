@@ -4,3 +4,8 @@ outputs/
 dist/
 *.log
 .DS_Store
+
+# ── Proprietary IP — do not commit ──────────────────────
+CLAUDE.md
+PRD-v2.md
+*.md.bak

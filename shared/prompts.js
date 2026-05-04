@@ -33,6 +33,8 @@ Return this exact JSON shape:
 {
   "companyName": "string — company name extracted from the job description. Default: 'Unknown_Company'",
   "jobTitle": "string — job title extracted from the job description. Default: 'Unknown_Role'",
+  "jobLocation": "string — city and state/country where job is based, e.g. Chicago, IL. Default: Not available",
+  "workType": "string — one of: Remote, Hybrid, On-site, or Not available based on JD content",
   "sectionsFound": ["array of section names present with meaningful content. Use exact names from the list above."],
   "sectionsPartial": ["array of section names present but with minimal/incomplete content"],
   "sectionsMissing": [
@@ -217,7 +219,7 @@ Return ONLY valid JSON:
 
 // ─── API Call 3: Match Analysis ─────────────────────────────────────────────
 
-export const MATCH_ANALYSIS_SYSTEM_PROMPT = `You are a senior talent acquisition specialist and resume analyst. Analyse how well an optimised resume matches a specific job description. Be specific, evidence-based, and actionable.
+export const MATCH_ANALYSIS_SYSTEM_PROMPT = `You are a senior talent acquisition specialist and resume analyst. Analyze how well an optimized resume matches a specific job description. Be specific, evidence-based, and actionable.
 
 MATCH STATUS DEFINITIONS:
   STRONG (80–100): Clearly and specifically addressed with relevant experience or skills.
@@ -284,7 +286,7 @@ Return ONLY valid JSON:
 }`;
 
 /**
- * Assemble a plain-text representation of the optimised resume
+ * Assemble a plain-text representation of the optimized resume
  * from the structured data returned by API Calls 1 and 2.
  */
 export function assembleOptimisedResumeText(headers, experience) {
@@ -333,9 +335,48 @@ export function assembleOptimisedResumeText(headers, experience) {
 }
 
 // ─── Match-Only Analysis ─────────────────────────────────────────────────────
-// Used by /api/match-only — analyses the ORIGINAL (unoptimised) resume vs JD.
+// Used by /api/match-only — analyzes the ORIGINAL (unoptimized) resume vs JD.
 // Reuses MATCH_ANALYSIS_SYSTEM_PROMPT; only the user prompt differs.
 
 // ─── Cover Letter ────────────────────────────────────────────────────────────
 
-export const COVER_LETTER_SYSTEM_PROMPT = `You are an expert career coach and professional writer. Your task is to draft a compelling cover letter based on the candidate's resume and the target job description.\n\nSTRICT RULES:\n1. Never fabricate any information not present in the resume.\n2. Address it to "The Hiring Manager" of the department at the company extracted from the JD.\n3. Structure: opening paragraph → 3–5 bullet points on fit → call-to-action closing → "Sincerely" sign-off.\n4. Opening paragraph: 2–3 sentences expressing genuine enthusiasm for the specific role and company, referencing something concrete from the JD.\n5. Bullet points: each one connects a specific achievement or skill from the resume to a specific requirement in the JD. Be concrete, not generic.\n6. Closing paragraph: confident call to action — invite the hiring manager to discuss how you can contribute.\n7. Tone: professional but warm. Not stiff or robotic.\n8. Length: 300–400 words total.\n9. Do NOT include a mailing address block or date — output the letter body only, starting with the salutation.\n\nReturn ONLY the plain text of the cover letter — no JSON, no markdown, no code fences.`;
+export const COVER_LETTER_SYSTEM_PROMPT = `You are an expert career coach and professional writer. Your task is to draft a compelling cover letter based on the candidate's resume and the target job description.\n\nSTRICT RULES:\n1. Never fabricate any information not present in the resume.\n2. Address it to "The Hiring Manager" of the department at the company extracted from the JD.\n3. Structure: opening paragraph → 3–5 bullet points on fit → call-to-action closing → "Sincerely" sign-off.\n4. Opening paragraph: 2–3 sentences expressing genuine enthusiasm for the specific role and company, referencing something concrete from the JD.\n5. Bullet points: each one connects a specific achievement or skill from the resume to a specific requirement in the JD. Be concrete, not generic.\n6. Closing paragraph: confident call to action — invite the hiring manager to discuss how you can contribute.\n7. Tone: professional but warm. Not stiff or robotic.\n8. Length: 300–400 words total.\n9. Do NOT include a mailing address block or date — output the letter body only, starting with the salutation.\n10. Never use em-dashes (—) anywhere. Use commas or semicolons instead.\n11. Use American English spelling throughout.\n\nReturn ONLY the plain text of the cover letter — no JSON, no markdown, no code fences.`;
+
+// ─── ATS Scoring Preview ─────────────────────────────────────────────────────
+// Used by Call 5 (Haiku) in /api/optimize — runs in parallel with Call 4.
+// Simulates an ATS evaluation of the optimized resume against the JD.
+
+// ─── ATS Scoring Preview ─────────────────────────────────────────────────────
+// Call 5 (Haiku) — runs in parallel with Call 4. Returns JSON for dashboard UI.
+
+export const ATS_PREVIEW_SYSTEM_PROMPT = `You are an Applicant Tracking System evaluating a resume against a job description. Return ONLY valid JSON with no other text.
+
+Evaluate as a real ATS and talent partner. Be specific and evidence-based.
+
+DISPOSITION values (pick one): "Advance — screen" | "Advance — interview" | "Hold — borderline" | "Pass — insufficient fit"
+DISPOSITION_COLOR values: "green" (advance) | "amber" (hold) | "red" (pass)
+RESULT values for eligibilityChecks: "pass" | "fail" | "caution"
+
+Return this exact JSON structure:
+{
+  "atsScore": integer 0-100,
+  "keywordMatch": integer 0-100,
+  "hardReqsMet": { "met": integer, "total": integer },
+  "disposition": "one of the DISPOSITION values above",
+  "dispositionColor": "green | amber | red",
+  "summary": "One sentence explaining the disposition to a talent partner",
+  "eligibilityChecks": [
+    { "requirement": "Requirement label", "evidence": "Evidence found or Not evidenced", "result": "pass | fail | caution" }
+  ],
+  "scoringBreakdown": [
+    { "dimension": "Dimension name", "score": integer 0-100 }
+  ]
+}
+
+RULES:
+- eligibilityChecks: 6-10 items covering the JD principal requirements. Derive from the actual JD.
+- scoringBreakdown: 5-7 dimensions covering keyword coverage, experience depth, education, role alignment, and JD-specific dimensions.
+- Never fabricate evidence. If not in the resume, mark as "Not evidenced" with result "fail".
+- Use "caution" when evidence is partial, indirect, or lower seniority than required.
+- No em-dashes. Use commas or semicolons instead.
+`;
