@@ -20,6 +20,11 @@ const LIGHT_GREY = 'F0F2F7';
 const DARK_GREY = '444444';
 const WHITE = 'FFFFFF';
 
+// ─── Helper: score → color (used for overall score, requirements, bars) ───────
+function colorForScore(score) {
+  return score >= 80 ? SUCCESS : score >= 60 ? WARNING : DANGER;
+}
+
 // ─── Helper: section heading (single paragraph with bottom border — no gap) ──
 function sectionHeading(text) {
   return [
@@ -40,6 +45,15 @@ function sectionHeading(text) {
       spacing: { before: 240, after: 80 },
     }),
   ];
+}
+
+// ─── Helper: pipe-separated list section (skills, tools, keywords) ───────────
+function addListSection(children, title, items) {
+  children.push(...sectionHeading(title));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: items.join(' | '), size: 20, font: 'Calibri', color: DARK_GREY })],
+    spacing: { after: 200 },
+  }));
 }
 
 // ─── Helper: bullet paragraph ────────────────────────────────────────────────
@@ -161,40 +175,10 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
   );
 
   // ── Skills
-  if (headers.skills && headers.skills.length > 0) {
-    children.push(...sectionHeading('Skills / Core Competencies'));
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: headers.skills.join(' | '),
-            size: 20,
-            font: 'Calibri',
-            color: DARK_GREY,
-          }),
-        ],
-        spacing: { after: 200 },
-      })
-    );
-  }
+  if (headers.skills?.length > 0) addListSection(children, 'Skills / Core Competencies', headers.skills);
 
   // ── Tools
-  if (headers.tools && headers.tools.length > 0) {
-    children.push(...sectionHeading('Tools & Technologies'));
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: headers.tools.join(' | '),
-            size: 20,
-            font: 'Calibri',
-            color: DARK_GREY,
-          }),
-        ],
-        spacing: { after: 200 },
-      })
-    );
-  }
+  if (headers.tools?.length > 0) addListSection(children, 'Tools & Technologies', headers.tools);
 
   // ── Work Experience
   if (experience && experience.length > 0) {
@@ -358,7 +342,7 @@ export async function generateAnalysisDocx(analysis, atsPreview, companyName, jo
 
   // ── Overall Score Banner
   const score = analysis.overallScore || 0;
-  const scoreColor = score >= 80 ? SUCCESS : score >= 60 ? WARNING : DANGER;
+  const scoreColor = colorForScore(score);
 
   children.push(
     new Paragraph({
@@ -491,7 +475,7 @@ export async function generateAnalysisDocx(analysis, atsPreview, companyName, jo
         children: [new TextRun({ text: 'Scoring Breakdown', font: 'Calibri', size: 20, bold: true, color: NAVY })] }));
       for (const dim of atsPreview.scoringBreakdown) {
         const score = dim.score ?? 0;
-        const barColor = score >= 80 ? SUCCESS : score >= 50 ? WARNING : DANGER;
+        const barColor = colorForScore(score);
         children.push(new Paragraph({
           spacing: { before: 60, after: 40 },
           children: [
@@ -591,7 +575,7 @@ export async function generateAnalysisDocx(analysis, atsPreview, companyName, jo
 
     const dataRows = analysis.requirements.map((req, idx) => {
       const isEven      = idx % 2 === 0;
-      const statusColor = req.status === 'STRONG' ? SUCCESS : req.status === 'PARTIAL' ? WARNING : DANGER;
+      const statusColor = req.status === 'STRONG' ? SUCCESS : req.status === 'PARTIAL' ? WARNING : DANGER; // status-based, not score-based
       const rowShading  = { type: ShadingType.SOLID, color: isEven ? LIGHT_GREY : WHITE };
 
       return new TableRow({

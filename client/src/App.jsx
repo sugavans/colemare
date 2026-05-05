@@ -63,44 +63,27 @@ export default function App() {
   const setStep = useCallback((step, status) =>
     setSteps(prev => ({ ...prev, [step]: status })), []);
 
-  // ─── Reset / Go Back ──────────────────────────────────────────────────────
-  const handleReset = useCallback(() => {
-    setScreen(SCREEN.INPUT);
-    setResumeText('');
-    setJobDescription('');
-    setScanData(null);
-    setSectionAdditions({});
+  // ─── Reset helpers ────────────────────────────────────────────────────────
+  // clearText: also wipe resume/JD inputs (full Start Over).
+  // Without it, inputs are preserved so the user can retry or go back.
+  const resetState = useCallback(({ clearText = false } = {}) => {
     setResults(null);
     setExportData(null);
     setOptimizeError(null);
     setSteps(INITIAL_STEPS.optimize);
-    setAppMode('optimize');
-  }, []);
-
-  // Preserves resume + JD text — used from match/coverletter results
-  const handleGoBack = useCallback(() => {
     setScreen(SCREEN.INPUT);
-    setResults(null);
-    setExportData(null);
-    setOptimizeError(null);
+    if (clearText) {
+      setResumeText('');
+      setJobDescription('');
+      setScanData(null);
+      setSectionAdditions({});
+      setAppMode('optimize');
+    }
   }, []);
 
-  // Preserves resume + JD text on error — used by Try Again button
-  const handleRetry = useCallback(() => {
-    setScreen(SCREEN.INPUT);
-    setOptimizeError(null);
-    setResults(null);
-    setExportData(null);
-    setSteps(INITIAL_STEPS.optimize);
-  }, []);
-
-  const beginProcessing = useCallback((mode) => {
-    setScreen(SCREEN.PROCESSING);
-    setResults(null);
-    setExportData(null);
-    setOptimizeError(null);
-    setSteps({ ...INITIAL_STEPS[mode] });
-  }, []);
+  const handleReset  = useCallback(() => resetState({ clearText: true }), [resetState]);
+  const handleGoBack = useCallback(() => resetState(),                      [resetState]);
+  const handleRetry  = useCallback(() => resetState(),                      [resetState]);
 
   // ─── Export helper ────────────────────────────────────────────────────────
   const runExport = useCallback(async (payload) => {
@@ -111,8 +94,39 @@ export default function App() {
         body: JSON.stringify(payload),
       });
       if (res.ok) setExportData(await res.json());
-    } catch { /* non-blocking */ }
+    } catch { /* non-blocking — results still shown even if export fails */ }
   }, []);
+
+  const beginProcessing = useCallback((mode) => {
+    setScreen(SCREEN.PROCESSING);
+    setResults(null);
+    setExportData(null);
+    setOptimizeError(null);
+    setSteps({ ...INITIAL_STEPS[mode] });
+  }, []);
+
+  // ─── Generic SSE runner — used by match + coverletter pipelines ───────────
+  // `getExportPayload` maps the SSE result event → /api/export request body.
+  const runSimplePipeline = useCallback(async (mode, url, body, getExportPayload) => {
+    beginProcessing(mode);
+    window.posthog?.capture('optimize_started', { mode });
+    try {
+      await readSSE(`${API_BASE}${url}`, body, async (event) => {
+        if (event.type === 'step') {
+          setStep(event.step, event.status);
+        } else if (event.type === 'result') {
+          await runExport(getExportPayload(event));
+          window.posthog?.capture('optimize_completed', { mode, overallScore: event.analysis?.overallScore ?? null });
+          setResults({ ...event, mode });
+          setScreen(SCREEN.RESULTS);
+        } else if (event.type === 'error') {
+          setOptimizeError(event.message || 'An error occurred.');
+        }
+      });
+    } catch (err) {
+      setOptimizeError(err.message || 'Connection error. Please try again.');
+    }
+  }, [beginProcessing, runExport, setStep]);
 
   // ─── OPTIMIZE flow ────────────────────────────────────────────────────────
   const handleScan = useCallback(async ({ resumeText: rt, jobDescription: jd }) => {
@@ -120,9 +134,9 @@ export default function App() {
     setJobDescription(jd);
     setAppMode('optimize');
     setOptimizeError(null);
-    window.posthog?.capture('optimize_started', { mode: 'optimize' });
     setScanData(null);
     setSectionAdditions({});
+    window.posthog?.capture('optimize_started', { mode: 'optimize' });
 
     try {
       const res  = await fetch(`${API_BASE}/api/scan`, {
@@ -138,7 +152,11 @@ export default function App() {
         startOptimization(rt, jd, data.companyName, data.jobTitle, {});
       }
     } catch {
-      const fallback = { companyName: 'Unknown_Company', jobTitle: 'Unknown_Role', sectionsFound: [], sectionsPartial: [], sectionsMissing: [], fallback: true, _resumeText: rt };
+      const fallback = {
+        companyName: 'Unknown_Company', jobTitle: 'Unknown_Role',
+        sectionsFound: [], sectionsPartial: [], sectionsMissing: [],
+        fallback: true, _resumeText: rt,
+      };
       setScanData(fallback);
       startOptimization(rt, jd, fallback.companyName, fallback.jobTitle, {});
     }
@@ -146,7 +164,12 @@ export default function App() {
 
   const handleSectionReviewComplete = useCallback((additions) => {
     setSectionAdditions(additions || {});
-    startOptimization(resumeText, jobDescription, scanData?.companyName || 'Unknown_Company', scanData?.jobTitle || 'Unknown_Role', additions || {});
+    startOptimization(
+      resumeText, jobDescription,
+      scanData?.companyName || 'Unknown_Company',
+      scanData?.jobTitle    || 'Unknown_Role',
+      additions || {},
+    );
   }, [resumeText, jobDescription, scanData]);
 
   const startOptimization = useCallback(async (rt, jd, companyName, jobTitle, additions) => {
@@ -155,80 +178,57 @@ export default function App() {
     setSteps(prev => ({ ...prev, 1: 'complete', 2: 'complete' }));
 
     try {
-      await readSSE(`${API_BASE}/api/optimize`, { resumeText: rt, jobDescription: jd, companyName, jobTitle, sectionAdditions: additions }, async (event) => {
-        if (event.type === 'step') {
-          setStep(event.step, event.status);
-        } else if (event.type === 'result') {
-          await runExport({
-            headers: event.headers, experience: event.experience,
-            analysis: event.analysis, atsPreview: event.atsPreview,
-            coverLetter: event.coverLetter,
-            companyName: event.companyName, jobTitle: event.jobTitle,
-            sectionsWereAdded: event.sectionsWereAdded,
-          });
-          window.posthog?.capture('optimize_completed', { mode: 'optimize', overallScore: event.analysis?.overallScore ?? null });
-          setResults({ ...event, mode: 'optimize' }); // atsPreview passed via ...event
-          setScreen(SCREEN.RESULTS);
-        } else if (event.type === 'error') {
-          setOptimizeError(event.message || 'An error occurred. Please try again.');
-        }
-      });
+      await readSSE(
+        `${API_BASE}/api/optimize`,
+        { resumeText: rt, jobDescription: jd, companyName, jobTitle, sectionAdditions: additions },
+        async (event) => {
+          if (event.type === 'step') {
+            setStep(event.step, event.status);
+          } else if (event.type === 'result') {
+            await runExport({
+              headers:          event.headers,
+              experience:       event.experience,
+              analysis:         event.analysis,
+              atsPreview:       event.atsPreview,
+              coverLetter:      event.coverLetter,
+              companyName:      event.companyName,
+              jobTitle:         event.jobTitle,
+              sectionsWereAdded: event.sectionsWereAdded,
+            });
+            window.posthog?.capture('optimize_completed', { mode: 'optimize', overallScore: event.analysis?.overallScore ?? null });
+            setResults({ ...event, mode: 'optimize' });
+            setScreen(SCREEN.RESULTS);
+          } else if (event.type === 'error') {
+            setOptimizeError(event.message || 'An error occurred. Please try again.');
+          }
+        },
+      );
     } catch (err) {
       setOptimizeError(err.message || 'Connection error. Please try again.');
     }
   }, []);
 
   // ─── MATCH ONLY flow ──────────────────────────────────────────────────────
-  const handleMatchOnly = useCallback(async ({ resumeText: rt, jobDescription: jd }) => {
+  const handleMatchOnly = useCallback(({ resumeText: rt, jobDescription: jd }) => {
     setResumeText(rt);
     setJobDescription(jd);
     setAppMode('match');
-    window.posthog?.capture('optimize_started', { mode: 'match' });
-    beginProcessing('match');
-
-    try {
-      await readSSE(`${API_BASE}/api/match-only`, { resumeText: rt, jobDescription: jd }, async (event) => {
-        if (event.type === 'step') {
-          setStep(event.step, event.status);
-        } else if (event.type === 'result') {
-          await runExport({ analysis: event.analysis, atsPreview: event.atsPreview, companyName: event.companyName, jobTitle: event.jobTitle, sectionsWereAdded: false });
-          window.posthog?.capture('optimize_completed', { mode: 'match', overallScore: event.analysis?.overallScore ?? null });
-          setResults({ ...event, mode: 'match' });
-          setScreen(SCREEN.RESULTS);
-        } else if (event.type === 'error') {
-          setOptimizeError(event.message || 'An error occurred.');
-        }
-      });
-    } catch (err) {
-      setOptimizeError(err.message || 'Connection error. Please try again.');
-    }
-  }, []);
+    return runSimplePipeline(
+      'match', '/api/match-only', { resumeText: rt, jobDescription: jd },
+      event => ({ analysis: event.analysis, atsPreview: event.atsPreview, companyName: event.companyName, jobTitle: event.jobTitle, sectionsWereAdded: false }),
+    );
+  }, [runSimplePipeline]);
 
   // ─── COVER LETTER flow ────────────────────────────────────────────────────
-  const handleCoverLetter = useCallback(async ({ resumeText: rt, jobDescription: jd }) => {
+  const handleCoverLetter = useCallback(({ resumeText: rt, jobDescription: jd }) => {
     setResumeText(rt);
     setJobDescription(jd);
     setAppMode('coverletter');
-    window.posthog?.capture('optimize_started', { mode: 'coverletter' });
-    beginProcessing('coverletter');
-
-    try {
-      await readSSE(`${API_BASE}/api/cover-letter`, { resumeText: rt, jobDescription: jd }, async (event) => {
-        if (event.type === 'step') {
-          setStep(event.step, event.status);
-        } else if (event.type === 'result') {
-          await runExport({ coverLetter: event.coverLetter, companyName: event.companyName, jobTitle: event.jobTitle });
-          window.posthog?.capture('optimize_completed', { mode: 'coverletter', overallScore: null });
-          setResults({ ...event, mode: 'coverletter' });
-          setScreen(SCREEN.RESULTS);
-        } else if (event.type === 'error') {
-          setOptimizeError(event.message || 'An error occurred.');
-        }
-      });
-    } catch (err) {
-      setOptimizeError(err.message || 'Connection error. Please try again.');
-    }
-  }, []);
+    return runSimplePipeline(
+      'coverletter', '/api/cover-letter', { resumeText: rt, jobDescription: jd },
+      event => ({ coverLetter: event.coverLetter, companyName: event.companyName, jobTitle: event.jobTitle }),
+    );
+  }, [runSimplePipeline]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (

@@ -1,33 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import Footer from './Footer';
 
-const STEP_SETS = {
-  optimize: [
-    { id: 1, label: 'Extracting company & job info + scanning resume sections' },
-    { id: 2, label: 'Section review complete' },
-    { id: 3, label: 'Analyzing inputs' },
-    { id: 4, label: 'Optimizing header sections' },
-    { id: 5, label: 'Rewriting experience bullets' },
-    { id: 6, label: 'Running match analysis' },
-    { id: 7, label: 'Drafting cover letter' },
-  ],
-  match: [
-    { id: 1, label: 'Extracting company & job info' },
-    { id: 2, label: 'Analyzing resume against job description' },
-    { id: 3, label: 'Generating match report' },
-  ],
-  coverletter: [
-    { id: 1, label: 'Extracting company & job info' },
-    { id: 2, label: 'Analyzing resume and job description' },
-    { id: 3, label: 'Drafting cover letter' },
-  ],
+// Single config object per mode — keeps step labels and UI text co-located.
+const MODE_CONFIG = {
+  optimize: {
+    icon:     '✨',
+    title:    'Optimizing Everything',
+    subtitle: 'This usually takes 60–90 seconds.',
+    steps: [
+      { id: 1, label: 'Extracting company & job info + scanning resume sections' },
+      { id: 2, label: 'Section review complete' },
+      { id: 3, label: 'Analyzing inputs' },
+      { id: 4, label: 'Optimizing header sections' },
+      { id: 5, label: 'Rewriting experience bullets' },
+      { id: 6, label: 'Running match analysis' },
+      { id: 7, label: 'Drafting cover letter' },
+    ],
+  },
+  match: {
+    icon:     '📊',
+    title:    'Scoring Your Resume',
+    subtitle: 'This usually takes 30–45 seconds.',
+    steps: [
+      { id: 1, label: 'Extracting company & job info' },
+      { id: 2, label: 'Analyzing resume against job description' },
+      { id: 3, label: 'Generating match report' },
+    ],
+  },
+  coverletter: {
+    icon:     '✉️',
+    title:    'Drafting Your Cover Letter',
+    subtitle: 'This usually takes 30–45 seconds.',
+    steps: [
+      { id: 1, label: 'Extracting company & job info' },
+      { id: 2, label: 'Analyzing resume and job description' },
+      { id: 3, label: 'Drafting cover letter' },
+    ],
+  },
 };
 
-const MODE_TITLES = {
-  optimize:    { icon: '✨', title: 'Optimizing Everything',         subtitle: 'This usually takes 60–90 seconds.' },
-  match:       { icon: '📊', title: 'Scoring Your Resume',          subtitle: 'This usually takes 30–45 seconds.' },
-  coverletter: { icon: '✉️', title: 'Drafting Your Cover Letter',   subtitle: 'This usually takes 30–45 seconds.' },
-};
+// How long with no SSE progress before showing the cold-start warning.
+const COLD_START_MS = 8_000;
 
 function StepIcon({ status }) {
   if (status === 'complete') {
@@ -54,18 +67,16 @@ function StepIcon({ status }) {
 }
 
 export default function ProcessingScreen({ steps, error, onRetry, mode = 'optimize' }) {
-  const stepList  = STEP_SETS[mode] || STEP_SETS.optimize;
-  const totalSteps = stepList.length;
-  const { icon, title, subtitle } = MODE_TITLES[mode] || MODE_TITLES.optimize;
+  const { icon, title, subtitle, steps: stepList } = MODE_CONFIG[mode] ?? MODE_CONFIG.optimize;
   const completeCount = Object.values(steps).filter(s => s === 'complete').length;
 
-  // Cold-start warning — Railway free tier spins down after inactivity
+  // Show a cold-start warning if the server hasn't sent any progress after COLD_START_MS.
   const [showColdStart, setShowColdStart] = useState(false);
   useEffect(() => {
     if (error) return;
     const timer = setTimeout(() => {
       if (completeCount === 0) setShowColdStart(true);
-    }, 8000);
+    }, COLD_START_MS);
     return () => clearTimeout(timer);
   }, [completeCount, error]);
 
@@ -94,8 +105,8 @@ export default function ProcessingScreen({ steps, error, onRetry, mode = 'optimi
 
             <div className="text-left space-y-1 mb-6">
               {stepList.map(step => {
-                const status    = steps[step.id] || 'pending';
-                const isActive  = status === 'active';
+                const status     = steps[step.id] || 'pending';
+                const isActive   = status === 'active';
                 const isComplete = status === 'complete';
                 return (
                   <div
@@ -122,10 +133,10 @@ export default function ProcessingScreen({ steps, error, onRetry, mode = 'optimi
             <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2">
               <div
                 className="bg-navy h-1.5 rounded-full transition-all duration-700"
-                style={{ width: `${(completeCount / totalSteps) * 100}%` }}
+                style={{ width: `${(completeCount / stepList.length) * 100}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400">{completeCount} of {totalSteps} steps complete</p>
+            <p className="text-xs text-gray-400">{completeCount} of {stepList.length} steps complete</p>
           </>
         )}
       </div>

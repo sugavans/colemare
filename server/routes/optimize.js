@@ -32,14 +32,37 @@ import {
 import { buildFileName } from '../../shared/fileNaming.js';
 import { generateResumeDocx, generateAnalysisDocx, generateCoverLetterDocx } from '../../shared/docxGenerator.js';
 
-const router     = Router();
+const router = Router();
 const client = new Anthropic({
   apiKey:     process.env.ANTHROPIC_API_KEY,
   timeout:    120_000,   // 2 minutes — covers large resume+JD inputs
   maxRetries: 2,         // auto-retry on connection errors
 });
-const HAIKU      = 'claude-haiku-4-5-20251001';
-const SONNET     = 'claude-sonnet-4-6';
+
+// ─── Model IDs ────────────────────────────────────────────────────────────────
+const HAIKU  = 'claude-haiku-4-5-20251001';
+const SONNET = 'claude-sonnet-4-6';
+
+// ─── Token limits — named so intent is clear at each call site ────────────────
+const MAX_TOKENS = {
+  SCAN:         2048,
+  META:         1024,
+  HEADERS:      3000,
+  EXPERIENCE:   4096,
+  ANALYSIS:     8000,
+  COVER_LETTER: 1500,
+  ATS_PREVIEW:  1400,
+};
+
+// ─── Timing constants ─────────────────────────────────────────────────────────
+const HEARTBEAT_MS    = 15_000;  // keeps Railway/proxy connections alive
+const ANALYZE_PAUSE_MS = 350;    // brief UX pause before Call 1 so "Analyzing…" registers
+
+// ─── Content-block helpers ────────────────────────────────────────────────────
+// JD is always first and cached so the cache prefix is identical across all calls.
+const jdBlock     = (jd, label = 'JOB DESCRIPTION') => ({ text: `${label}:\n---\n${jd}\n---`, cache: true });
+const resumeBlock = (rt, label = 'RESUME')           => ({ text: `${label}:\n---\n${rt}\n---`, cache: true });
+const instrBlock  = (text)                            => ({ text, cache: false });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,7 +121,7 @@ function setupSSE(res) {
   // from closing the connection during long Claude API calls.
   const heartbeat = setInterval(() => {
     if (!res.writableEnded) res.write(': heartbeat\n\n');
-  }, 15000);
+  }, HEARTBEAT_MS);
 
   // Stop heartbeat when the connection closes
   res.on('close', () => clearInterval(heartbeat));
@@ -112,8 +135,8 @@ const emit = (res, type, payload = {}) =>
 async function extractMeta(resumeText, jobDescription, label) {
   try {
     const raw  = await callClaude({
-      model: HAIKU, systemPrompt: SCAN_SYSTEM_PROMPT, maxTokens: 1024, label,
-      contentBlocks: [{ text: buildScanUserPrompt(resumeText, jobDescription), cache: false }],
+      model: HAIKU, systemPrompt: SCAN_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.META, label,
+      contentBlocks: [instrBlock(buildScanUserPrompt(resumeText, jobDescription))],
     });
     const meta = safeParseJSON(raw);
     return {
@@ -136,8 +159,8 @@ router.post('/scan', async (req, res) => {
   console.log('══════════════════════════════════════');
   try {
     const raw = await callClaude({
-      model: HAIKU, systemPrompt: SCAN_SYSTEM_PROMPT, maxTokens: 2048, label: 'Call 0',
-      contentBlocks: [{ text: buildScanUserPrompt(resumeText, jobDescription), cache: false }],
+      model: HAIKU, systemPrompt: SCAN_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.SCAN, label: 'Call 0',
+      contentBlocks: [instrBlock(buildScanUserPrompt(resumeText, jobDescription))],
     });
     return res.json(safeParseJSON(raw));
   } catch (err) {
@@ -178,7 +201,7 @@ router.post('/optimize', async (req, res) => {
   try {
     // Step 3: brief UX pause while "Analyzing inputs"
     emit(res, 'step', { step: 3, status: 'active' });
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise(r => setTimeout(r, ANALYZE_PAUSE_MS));
     emit(res, 'step', { step: 3, status: 'complete' });
 
     // ── Call 1: Header sections ───────────────────────────────────────────────
@@ -186,16 +209,13 @@ router.post('/optimize', async (req, res) => {
     let headers;
     try {
       const raw = await callClaude({
-        model: SONNET, systemPrompt: OPTIMISE_HEADERS_SYSTEM_PROMPT, maxTokens: 3000, label: 'Call 1 / headers',
+        model: SONNET, systemPrompt: OPTIMISE_HEADERS_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.HEADERS, label: 'Call 1 / headers',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `ORIGINAL RESUME:\n---\n${fullResumeText}\n---`, cache: true },
-          {
-            text: sectionContextNote
-              ? `SECTION CONTEXT:\n---\n${sectionContextNote}\n---\n\nRewrite the header sections to align with the job description. Return only valid JSON.`
-              : `Rewrite the header sections to align with the job description. Return only valid JSON.`,
-            cache: false,
-          },
+          jdBlock(jobDescription),
+          resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
+          instrBlock(sectionContextNote
+            ? `SECTION CONTEXT:\n---\n${sectionContextNote}\n---\n\nRewrite the header sections to align with the job description. Return only valid JSON.`
+            : `Rewrite the header sections to align with the job description. Return only valid JSON.`),
         ],
       });
       headers = safeParseJSON(raw);
@@ -213,11 +233,11 @@ router.post('/optimize', async (req, res) => {
     let experienceData;
     try {
       const raw = await callClaude({
-        model: SONNET, systemPrompt: OPTIMISE_EXPERIENCE_SYSTEM_PROMPT, maxTokens: 4096, label: 'Call 2 / experience',
+        model: SONNET, systemPrompt: OPTIMISE_EXPERIENCE_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.EXPERIENCE, label: 'Call 2 / experience',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `ORIGINAL RESUME:\n---\n${fullResumeText}\n---`, cache: true },
-          { text: `Rewrite all experience bullets using the what/how/so-what structure, ordered by JD relevance. Return only valid JSON.`, cache: false },
+          jdBlock(jobDescription),
+          resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
+          instrBlock('Rewrite all experience bullets using the what/how/so-what structure, ordered by JD relevance. Return only valid JSON.'),
         ],
       });
       experienceData = safeParseJSON(raw).experience || [];
@@ -234,10 +254,10 @@ router.post('/optimize', async (req, res) => {
     let analysis;
     try {
       const raw = await callClaude({
-        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 8000, label: 'Call 3 / analysis',
+        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.ANALYSIS, label: 'Call 3 / analysis',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `OPTIMIZED RESUME:\n---\n${optimisedText}\n---\n\nAnalyze how well the optimized resume matches this job description. Return only valid JSON.`, cache: false },
+          jdBlock(jobDescription),
+          instrBlock(`OPTIMIZED RESUME:\n---\n${optimisedText}\n---\n\nAnalyze how well the optimized resume matches this job description. Return only valid JSON.`),
         ],
       });
       analysis = safeParseJSON(raw);
@@ -252,18 +272,18 @@ router.post('/optimize', async (req, res) => {
     const [clResult, atsResult] = await Promise.allSettled([
       // Call 4: Cover letter (Sonnet)
       callClaude({
-        model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: 1500, label: 'Call 4 / cover-letter',
+        model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.COVER_LETTER, label: 'Call 4 / cover-letter',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `RESUME:\n---\n${fullResumeText}\n---\n\nDraft a cover letter following the system prompt instructions. Return plain text only.`, cache: false },
+          jdBlock(jobDescription),
+          instrBlock(`RESUME:\n---\n${fullResumeText}\n---\n\nDraft a cover letter following the system prompt instructions. Return plain text only.`),
         ],
       }),
-      // Call 5: ATS Preview (Haiku — cheaper, runs in parallel)
+      // Call 5: ATS Preview (Haiku — cheaper, runs in parallel with Call 4)
       callClaude({
-        model: HAIKU, systemPrompt: ATS_PREVIEW_SYSTEM_PROMPT, maxTokens: 1400, label: 'Call 5 / ats-preview',
+        model: HAIKU, systemPrompt: ATS_PREVIEW_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.ATS_PREVIEW, label: 'Call 5 / ats-preview',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `OPTIMIZED RESUME:\n---\n${optimisedText}\n---\n\nEvaluate this resume against the job description now.`, cache: false },
+          jdBlock(jobDescription),
+          instrBlock(`OPTIMIZED RESUME:\n---\n${optimisedText}\n---\n\nEvaluate this resume against the job description now.`),
         ],
       }),
     ]);
@@ -349,19 +369,19 @@ router.post('/match-only', async (req, res) => {
     // Run Sonnet analysis + Haiku ATS preview in parallel — same pattern as optimize Calls 4+5
     const [analysisResult, atsResult] = await Promise.allSettled([
       callClaude({
-        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: 8000, label: 'match-only/analysis',
+        model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.ANALYSIS, label: 'match-only/analysis',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `RESUME (original, unoptimized):\n---\n${resumeText}\n---`, cache: true },
-          { text: 'Analyse how well this resume matches the job description. Return only valid JSON.', cache: false },
+          jdBlock(jobDescription),
+          resumeBlock(resumeText, 'RESUME (original, unoptimized)'),
+          instrBlock('Analyse how well this resume matches the job description. Return only valid JSON.'),
         ],
       }),
       callClaude({
-        model: HAIKU, systemPrompt: ATS_PREVIEW_SYSTEM_PROMPT, maxTokens: 1400, label: 'match-only/ats-preview',
+        model: HAIKU, systemPrompt: ATS_PREVIEW_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.ATS_PREVIEW, label: 'match-only/ats-preview',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `RESUME (original, unoptimized):\n---\n${resumeText}\n---`, cache: true },
-          { text: 'Evaluate this resume against the job description now.', cache: false },
+          jdBlock(jobDescription),
+          resumeBlock(resumeText, 'RESUME (original, unoptimized)'),
+          instrBlock('Evaluate this resume against the job description now.'),
         ],
       }),
     ]);
@@ -406,11 +426,11 @@ router.post('/cover-letter', async (req, res) => {
     let coverLetter;
     try {
       coverLetter = await callClaude({
-        model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: 1500, label: 'cover-letter/draft',
+        model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.COVER_LETTER, label: 'cover-letter/draft',
         contentBlocks: [
-          { text: `JOB DESCRIPTION:\n---\n${jobDescription}\n---`, cache: true },
-          { text: `RESUME:\n---\n${resumeText}\n---`, cache: true },
-          { text: 'Draft a cover letter following the system prompt instructions. Return plain text only.', cache: false },
+          jdBlock(jobDescription),
+          resumeBlock(resumeText),
+          instrBlock('Draft a cover letter following the system prompt instructions. Return plain text only.'),
         ],
       });
     } catch {
