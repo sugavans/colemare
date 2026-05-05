@@ -120,6 +120,7 @@ export default function App() {
     setJobDescription(jd);
     setAppMode('optimize');
     setOptimizeError(null);
+    window.posthog?.capture('optimize_started', { mode: 'optimize' });
     setScanData(null);
     setSectionAdditions({});
 
@@ -165,6 +166,7 @@ export default function App() {
             companyName: event.companyName, jobTitle: event.jobTitle,
             sectionsWereAdded: event.sectionsWereAdded,
           });
+          window.posthog?.capture('optimize_completed', { mode: 'optimize', overallScore: event.analysis?.overallScore ?? null });
           setResults({ ...event, mode: 'optimize' }); // atsPreview passed via ...event
           setScreen(SCREEN.RESULTS);
         } else if (event.type === 'error') {
@@ -181,6 +183,7 @@ export default function App() {
     setResumeText(rt);
     setJobDescription(jd);
     setAppMode('match');
+    window.posthog?.capture('optimize_started', { mode: 'match' });
     beginProcessing('match');
 
     try {
@@ -189,6 +192,7 @@ export default function App() {
           setStep(event.step, event.status);
         } else if (event.type === 'result') {
           await runExport({ analysis: event.analysis, atsPreview: event.atsPreview, companyName: event.companyName, jobTitle: event.jobTitle, sectionsWereAdded: false });
+          window.posthog?.capture('optimize_completed', { mode: 'match', overallScore: event.analysis?.overallScore ?? null });
           setResults({ ...event, mode: 'match' });
           setScreen(SCREEN.RESULTS);
         } else if (event.type === 'error') {
@@ -205,6 +209,7 @@ export default function App() {
     setResumeText(rt);
     setJobDescription(jd);
     setAppMode('coverletter');
+    window.posthog?.capture('optimize_started', { mode: 'coverletter' });
     beginProcessing('coverletter');
 
     try {
@@ -213,6 +218,7 @@ export default function App() {
           setStep(event.step, event.status);
         } else if (event.type === 'result') {
           await runExport({ coverLetter: event.coverLetter, companyName: event.companyName, jobTitle: event.jobTitle });
+          window.posthog?.capture('optimize_completed', { mode: 'coverletter', overallScore: null });
           setResults({ ...event, mode: 'coverletter' });
           setScreen(SCREEN.RESULTS);
         } else if (event.type === 'error') {

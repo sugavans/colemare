@@ -523,7 +523,7 @@ function CoverLetterTab({ coverLetter, onDownload, exportData }) {
       <div className="flex justify-center">
         {(exportData?.coverLetterData || exportData?.coverLetterUrl) ? (
           <button
-            onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)}
+            onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName, 'coverletter')}
             className="btn-cl flex items-center gap-2 text-sm py-2 px-4"
           >
             ⬇ Download Cover Letter (.docx)
@@ -558,19 +558,19 @@ function DownloadBar({ exportData, onDownload }) {
       </div>
       <div className="flex gap-2 p-1 bg-gray-50 border border-gray-200 rounded-lg flex-wrap">
         {(exportData.analysisData || exportData.analysisUrl) && (
-          <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName)}
+          <button onClick={() => onDownload(exportData.analysisData || exportData.analysisUrl, exportData.analysisFileName, 'analysis')}
             className="btn-match flex items-center gap-2 text-sm py-2 px-4" title="Download Score & Analytics (.docx)">
             ⬇ Score & Analytics
           </button>
         )}
         {(exportData.resumeData || exportData.resumeUrl) && (
-          <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName)}
+          <button onClick={() => onDownload(exportData.resumeData || exportData.resumeUrl, exportData.resumeFileName, 'resume')}
             className="btn-opt flex items-center gap-2 text-sm py-2 px-4" title="Download Optimized Resume (.docx)">
             ⬇ Resume
           </button>
         )}
         {(exportData.coverLetterData || exportData.coverLetterUrl) && (
-          <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName)}
+          <button onClick={() => onDownload(exportData.coverLetterData || exportData.coverLetterUrl, exportData.coverLetterFileName, 'coverletter')}
             className="btn-cl flex items-center gap-2 text-sm py-2 px-4" title="Download Cover Letter (.docx)">
             ⬇ Cover Letter
           </button>
@@ -591,8 +591,9 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Accepts either a base64 string (production) or a URL (local dev fallback)
-  const handleDownload = (dataOrUrl, filename) => {
+  const handleDownload = (dataOrUrl, filename, documentType) => {
     if (!dataOrUrl) return;
+    window.posthog?.capture('download_clicked', { documentType });
     const a = document.createElement('a');
     if (dataOrUrl.startsWith('http') || dataOrUrl.startsWith('/')) {
       // Legacy URL path (local dev)
@@ -751,7 +752,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); window.posthog?.capture('tab_switched', { tabName: tab.id }); }}
               className="flex items-center gap-1.5 px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px"
               style={activeTab === tab.id
                 ? { borderBottomColor: tab.color, color: tab.color, background: `${tab.color}0a`, borderRadius: '6px 6px 0 0' }
