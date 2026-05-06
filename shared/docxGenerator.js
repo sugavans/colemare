@@ -288,11 +288,15 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
       {
         properties: {
           page: {
+            size: {
+              width:  convertInchesToTwip(8.5),  // US Letter
+              height: convertInchesToTwip(11),
+            },
             margin: {
-              top: convertInchesToTwip(0.65),
-              right: convertInchesToTwip(1),
+              top:    convertInchesToTwip(0.65),
+              right:  convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
-              left: convertInchesToTwip(1),
+              left:   convertInchesToTwip(1),
             },
           },
         },
@@ -642,11 +646,15 @@ export async function generateAnalysisDocx(analysis, atsPreview, companyName, jo
       {
         properties: {
           page: {
+            size: {
+              width:  convertInchesToTwip(8.5),  // US Letter
+              height: convertInchesToTwip(11),
+            },
             margin: {
-              top: convertInchesToTwip(1),
-              right: convertInchesToTwip(1),
+              top:    convertInchesToTwip(1),
+              right:  convertInchesToTwip(1),
               bottom: convertInchesToTwip(1),
-              left: convertInchesToTwip(1),
+              left:   convertInchesToTwip(1),
             },
           },
         },
@@ -719,6 +727,10 @@ export async function generateCoverLetterDocx(coverLetterText, companyName, jobT
     sections: [{
       properties: {
         page: {
+          size: {
+            width:  convertInchesToTwip(8.5),  // US Letter
+            height: convertInchesToTwip(11),
+          },
           margin: {
             top:    convertInchesToTwip(1.25),
             right:  convertInchesToTwip(1.25),
