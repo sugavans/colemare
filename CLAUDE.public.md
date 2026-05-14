@@ -79,11 +79,17 @@ npm run dev
 ## Model Routing
 
 ```
-HAIKU  = 'claude-haiku-4-5-20251001'   // fast extraction tasks
-SONNET = 'claude-sonnet-4-6'           // all quality writing work
+HAIKU  = 'claude-haiku-4-5-20251001'   // fast extraction tasks: scan, ATS preview
+SONNET = 'claude-sonnet-4-6'           // all quality writing: headers, experience, analysis, cover letter
 ```
 
-The optimize pipeline uses 6 Claude calls total. Prompt caching is applied throughout — the JD text is always placed first in content arrays so cache prefixes stay consistent across calls, significantly reducing token costs.
+The optimize pipeline uses 6 Claude calls total:
+- **Calls 1 + 2 run in parallel** (`Promise.allSettled`) — headers and experience bullets have no interdependency, saving ~15–20 seconds
+- **Call 3 uses streaming** (`client.messages.stream()`) — large analysis responses (6,000 tokens) keep the TCP socket active, preventing `socket hang-up` errors on long requests
+- **`withRetry` wrapper** — all calls retried up to 2× on transient errors (socket hang-up, ECONNRESET, 529) with 3s/6s backoff
+- **`agentkeepalive`** with `keepAlive: false` — opens a fresh TCP connection per call; required because the SDK uses `KeepAlive.HttpsAgent` internally (passing plain `https.Agent` breaks the SDK)
+
+Prompt caching is applied throughout — the JD text is always placed first in content arrays so cache prefixes stay consistent across calls, significantly reducing token costs.
 
 ---
 
@@ -151,6 +157,12 @@ Buttons: border-radius 50px (pill)
 
 ---
 
+## Cover Letter Format
+
+The cover letter uses a structured format: opening paragraph (2–3 sentences) + 3–5 bullet points + closing sentence. Bullets follow the `• Skill: evidence` pattern, where the skill label is bolded in both the web UI and the Word export. Total word count (excluding salutation/sign-off): 150–200 words.
+
+---
+
 ## Hard Rules — Never Violate
 
 - `ANTHROPIC_API_KEY` must **never** appear in any frontend file
@@ -160,6 +172,8 @@ Buttons: border-radius 50px (pill)
 - All SSE routes must call `res.end()` in both success and error paths
 - `/api/export` handles all three docx types — do not create separate export endpoints
 - docx files are generated in memory as base64 — no filesystem writes
+- Use `callClaudeStreaming` (not `callClaude`) for any call expected to return 3,000+ output tokens
+- Always wrap API calls in `withRetry` — never call the Anthropic client directly
 
 ---
 

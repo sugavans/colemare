@@ -89,11 +89,11 @@ const SONNET = 'claude-sonnet-4-6'          // quality: all optimisation work
 
 | Route | Description |
 |---|---|
-| `POST /api/scan` | Haiku: section detection + company/title. Returns JSON. |
-| `POST /api/optimize` | Sonnet Calls 1–4: full pipeline via SSE. |
-| `POST /api/match-only` | Haiku meta + Sonnet analysis via SSE. |
+| `POST /api/scan` | Haiku: section detection + company/title + resumeType. Returns JSON. |
+| `POST /api/optimize` | Full 6-call pipeline via SSE. Calls 1+2 parallel; Call 3 streaming. |
+| `POST /api/match-only` | Haiku meta + Sonnet analysis (streaming) via SSE. |
 | `POST /api/cover-letter` | Haiku meta + Sonnet draft via SSE. |
-| `POST /api/export` | Generates all applicable .docx files in `Promise.all`. |
+| `POST /api/export` | Generates all applicable .docx files in `Promise.all`. Returns base64. |
 | `GET /download/:co/:file` | Static file download from `/outputs`. |
 
 **There is no `/api/export-cover-letter` route.** `/api/export` handles all three document
@@ -121,6 +121,30 @@ Every SSE route must call `res.end()` in both success and error paths.
 
 The frontend `readSSE(url, body, onEvent)` utility in `App.jsx` handles reading — do not
 duplicate the fetch + ReadableStream loop.
+
+---
+
+## API call helpers (server/routes/optimize.js)
+
+```js
+// Standard call — use for short-to-medium output (<2,000 tokens)
+callClaude({ model, systemPrompt, contentBlocks, maxTokens, label })
+
+// Streaming call — REQUIRED for any call expected to return 3,000+ output tokens
+// Uses client.messages.stream() to keep TCP socket active; prevents socket hang-up
+callClaudeStreaming({ model, systemPrompt, contentBlocks, maxTokens, label })
+
+// Retry wrapper — wraps all callClaude / callClaudeStreaming calls automatically
+// Retries up to 2× on: socket hang up, ECONNRESET, Socket timeout, 529
+// Backoff: 3s, then 6s
+withRetry(async () => { /* api call */ }, label, retries = 2)
+```
+
+**When to use which:**
+- Call 3 (analysis, 6000t) → `callClaudeStreaming`
+- match-only analysis (8000t) → `callClaudeStreaming`
+- All other calls → `callClaude`
+- Never call `client.messages.create()` directly — always go through the helper
 
 ---
 
@@ -157,6 +181,7 @@ Do not lower the 700-word threshold or create per-button conditions.
 5. No em-dashes (—) or arrow symbols (→) inside bullets — commas only
 6. User-added sections (from Section Review) are authentic content — may be rewritten, never fabricated upon
 7. Cover letter (Call 4): non-blocking — failure must not abort the rest of the pipeline
+8. Cover letter format: opening paragraph (2–3 sentences) + 3–5 `• Skill: evidence` bullets + closing sentence. Total 150–200 words. Skill label before `:` is bolded in both UI and .docx.
 
 ---
 
@@ -186,6 +211,19 @@ Do not lower the 700-word threshold or create per-button conditions.
 | Tailwind only | No separate CSS files. Use Tailwind utility classes + `index.css` for custom tokens. |
 | res.end() always | Every SSE route must call `res.end()` in both the success and all error paths. |
 | safeParseJSON always | Never use `JSON.parse()` directly on Claude API responses. Use `safeParseJSON()`. |
+
+---
+
+## Section detection — functional/hybrid resumes
+
+The `/api/scan` response includes a `resumeType` field: `CHRONOLOGICAL | FUNCTIONAL | HYBRID`.
+
+The `SectionReviewScreen` appears when:
+- `resumeType === 'functional'` or `resumeType === 'hybrid'` (skills-first resumes often lack a
+  clearly separated Work Experience section), **or**
+- one or more required sections are missing from `sectionsMissing`
+
+Do not trigger Section Review for `CHRONOLOGICAL` resumes with all required sections present.
 
 ---
 

@@ -1,15 +1,16 @@
-# AI-Powered Resume Optimizer
+# Colemare — AI-Powered Resume Optimizer
 
-An AI-powered web application that rewrites your resume to precisely match any job description and scores every requirement individually.
+An AI-powered web application that offers three workflows: score a resume against a job description, draft a tailored cover letter, or fully optimize the resume and generate both — all powered by Anthropic Claude and delivered as formatted Word documents.
 
-Built with React 18, Express, and the Anthropic Claude API — using **claude-haiku-4-5-20251001** for fast section detection and **claude-sonnet-4-6** for high-quality optimisation, with prompt caching enabled across all API calls.
+**Live:** https://colemare.vercel.app
+
+Built with React 18, Express, and the Anthropic Claude API — using **claude-haiku-4-5-20251001** for fast section detection and **claude-sonnet-4-6** for all quality writing, with prompt caching and SSE streaming throughout.
 
 ---
 
 ## Prerequisites
 
 - **Node.js** v18.11 or higher ([download](https://nodejs.org))
-  - v18.11+ is required for `node --watch` (used in `npm run server`)
 - An **Anthropic API key** ([get one](https://console.anthropic.com))
 
 Verify your Node version:
@@ -24,8 +25,8 @@ node --version   # must be v18.11.0 or higher
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
-cd resume-optimizer
+git clone https://github.com/sugavans/colemare.git
+cd colemare
 ```
 
 ### 2. Install dependencies
@@ -69,51 +70,64 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
+## Three Workflows
+
+| Button | Purpose | Output |
+|---|---|---|
+| 📊 **Score My Resume** | Scores every JD requirement against your resume with an honest match % and ATS keyword audit | Score & Analytics .docx |
+| ✉️ **Draft Cover Letter** | Writes a tailored cover letter grounded in your real experience — opening paragraph + 3–5 skill bullets + closing | Cover Letter .docx |
+| ✨ **Optimize Everything** | Rewrites your resume bullets, reorders skills, scores against the JD, and generates a cover letter in one run | Resume + Score & Analytics + Cover Letter .docx |
+
+All three buttons require a combined minimum of 700 words across resume and job description.
+
+---
+
 ## How to Use
 
 1. **Paste your resume** as plain text into the left textarea. Follow the ATS tip shown below the input.
 2. **Paste the job description** into the right textarea.
-3. Click **Optimize My Resume**.
-4. If any resume sections are missing, a **Section Review** screen appears. You can add missing content, map non-standard headings, or proceed as-is.
-5. Watch the **6-step progress stepper** as each pipeline stage completes.
+3. Click any of the three workflow buttons.
+4. If any required resume sections are missing, a **Section Review** screen appears — you can add content, map non-standard headings, or proceed as-is.
+5. Watch the **7-step progress stepper** (optimize) or **3-step stepper** (score / cover letter) update in real time via Server-Sent Events.
 6. On the **Results screen**:
-   - **Optimized Resume tab** — fully rewritten resume aligned to the JD.
-   - **Match Analysis tab** — every JD requirement scored and explained.
-   - **Download buttons** — export both as formatted `.docx` files.
+   - **Score & Analytics tab** — ATS dashboard, eligibility checks, gap action plan, keyword audit
+   - **Optimized Resume tab** — fully rewritten resume aligned to the JD (optimize mode only)
+   - **Cover Letter tab** — tailored cover letter with skill bullets (optimize + cover letter modes)
+   - **Download buttons** — export any output as a formatted `.docx` file
 
 ---
 
 ## Project File Structure
 
 ```
-resume-optimizer/
+colemare/
 ├── client/                            # React 18 frontend (Vite)
 │   ├── index.html
 │   └── src/
 │       ├── main.jsx                   # React entry point
-│       ├── index.css                  # Tailwind base + component classes
-│       ├── App.jsx                    # Root component, all app state + screen routing
+│       ├── index.css                  # Tailwind base + custom tokens
+│       ├── App.jsx                    # Root component — screen routing, SSE reader, flow handlers
 │       └── components/
-│           ├── InputScreen.jsx        # Step 1: resume + JD textarea inputs
-│           ├── SectionReviewScreen.jsx # Step 2: missing section review + actions
-│           ├── ProcessingScreen.jsx   # Step 3: 6-step SSE progress stepper
-│           ├── ResultsScreen.jsx      # Step 4: score banner, tabs, downloads
-│           ├── SectionStatusPanel.jsx # Section detection status grid (11 sections)
-│           ├── AddSectionsEditor.jsx  # Inline form for user to add missing sections
-│           └── SectionMapper.jsx      # Map non-standard headings to standard sections
+│           ├── InputScreen.jsx        # 3-button entry, ATS tip, 700-word gate
+│           ├── SectionReviewScreen.jsx # Missing section detection and recovery
+│           ├── ProcessingScreen.jsx   # Mode-aware SSE progress stepper (3 or 7 steps)
+│           ├── ResultsScreen.jsx      # Score banner, Job context bar, tabs, download panel
+│           ├── SectionStatusPanel.jsx # FOUND / PARTIAL / MISSING badges
+│           ├── AddSectionsEditor.jsx  # Inline form for adding missing sections
+│           ├── SectionMapper.jsx      # Map non-standard headings to standard sections
+│           └── Footer.jsx             # AI disclaimer
 ├── server/
 │   ├── server.js                      # Express entry point (port 3001)
 │   └── routes/
-│       └── optimize.js                # /api/scan, /api/optimize (SSE), /api/export
+│       └── optimize.js                # All API routes + helpers
 ├── shared/
-│   ├── prompts.js                     # All Claude prompt templates + assembler
-│   ├── fileNaming.js                  # buildFileName() with unit tests (npm run test:naming)
-│   ├── sectionDetector.js             # Section name constants, required/optional lists, tags
-│   └── docxGenerator.js              # Word document generation (docx package)
-├── outputs/                           # Generated files, organised as /outputs/{CompanyName}/
+│   ├── prompts.js                     # All Claude prompt templates
+│   ├── docxGenerator.js               # Word document generation (in-memory, base64)
+│   ├── fileNaming.js                  # buildFileName() — 25-char truncation + sanitization
+│   └── sectionDetector.js             # Section name constants (11 sections)
+├── outputs/                           # Generated files, gitignored
 ├── test-data/                         # 5 test resumes + 3 JDs + testing guide
-├── .env                               # API keys (never commit)
-├── .env.example                       # Template
+├── .env.example                       # Environment variable template
 ├── .gitignore
 ├── package.json
 ├── tailwind.config.js
@@ -126,33 +140,39 @@ resume-optimizer/
 
 ## API Pipeline
 
-Each optimisation run makes **4 sequential API calls**:
+### Optimize Everything (6 Claude calls)
 
-| Call | Route | Model | Purpose | Prompt Caching |
-|---|---|---|---|---|
-| 0 | `POST /api/scan` | `claude-haiku-4-5-20251001` | Section detection + company/title extraction | System prompt cached |
-| 1 | `POST /api/optimize` | `claude-sonnet-4-6` | Rewrite header sections (summary, skills, tools) | System prompt + JD + resume cached |
-| 2 | `POST /api/optimize` | `claude-sonnet-4-6` | Rewrite experience bullets (what/how/so-what) | System prompt + JD + resume cached (reads) |
-| 3 | `POST /api/optimize` | `claude-sonnet-4-6` | Match analysis — score every JD requirement | System prompt + JD cached (read) |
+| Call | Model | Purpose | Notes |
+|---|---|---|---|
+| 0 | Haiku | Section scan + metadata | Sync; triggers Section Review if sections missing |
+| 1 + 2 | Sonnet | Headers ∥ Experience bullets | **Parallel** — saves ~15–20 seconds |
+| 3 | Sonnet | Match analysis (6,000 tokens) | **Streaming** — prevents socket hang-up on large responses |
+| 4 | Sonnet | Cover letter draft | Parallel with Call 5 |
+| 5 | Haiku | ATS preview simulation | Parallel with Call 4 |
 
-Calls 1–3 are streamed to the frontend via **Server-Sent Events (SSE)**, updating the progress stepper in real time.
+### Score My Resume (2 Claude calls)
+Haiku metadata extraction → Sonnet analysis ∥ Haiku ATS preview (parallel).
+
+### Draft Cover Letter (2 Claude calls)
+Haiku metadata extraction → Sonnet cover letter draft.
+
+### Reliability
+
+All Anthropic API calls are wrapped in a `withRetry` helper that retries up to 2× on transient errors (socket hang-up, ECONNRESET, HTTP 529) with 3s/6s backoff. Long-output calls use `client.messages.stream()` to keep the TCP connection active.
 
 ### Prompt Caching Strategy
 
-Prompt caching is active on all four calls. The server console logs cache stats on every request:
+Prompt caching reduces token cost by ~50–60% per session. The server console logs cache stats after every call:
 
 ```
-📦 CACHE WRITE [Call 1 / headers]    input: 1840 | cache_write: 620 | cache_read: 0    | output: 580
-✅ CACHE HIT   [Call 2 / experience] input: 210  | cache_write: 0   | cache_read: 2460 | output: 1180
-✅ CACHE HIT   [Call 3 / analysis]   input: 190  | cache_write: 0   | cache_read: 620  | output: 980
+📦 CACHE WRITE [Call 1 / headers]     input: 1840 | cache_write: 620 | cache_read: 0    | output: 580
+✅ CACHE HIT   [Call 2 / experience]  input: 210  | cache_write: 0   | cache_read: 2460 | output: 1180
+✅ CACHE HIT   [Call 3 / analysis]    input: 190  | cache_write: 0   | cache_read: 620  | output: 980
 ```
 
-**What is cached:**
-- All four **system prompts** — static text shared globally across every user
-- **JD text** — sent in Calls 1, 2, and 3; written to cache on Call 1, read back on Calls 2 and 3
-- **Resume text** — sent in Calls 1 and 2; written on Call 1, read back on Call 2
-
-Cache reads cost ~90% less than a full input token. For a typical session this reduces cost by **50–60%** compared to uncached calls.
+- All system prompts cached with `cache_control: ephemeral`
+- JD text cached on the first call of each pipeline, read back on subsequent calls
+- Resume text cached on Calls 1 and 2 only (original text)
 
 ---
 
@@ -170,35 +190,34 @@ Cache reads cost ~90% less than a full input token. For a typical session this r
 
 ## Output Files
 
-Generated files are written to `/outputs/{CompanyName}/` on the server:
+All documents are generated in memory and returned as base64 — no filesystem writes on the server (Railway has an ephemeral filesystem).
 
 | File | Name Pattern |
 |---|---|
-| Optimised Resume | `{CompanyName}_{JobTitle}_Resume.docx` |
-| Match Analysis | `{CompanyName}_{JobTitle}_Analysis.docx` |
+| Optimized Resume | `{CompanyName}_{JobTitle}_Resume.docx` |
+| Score & Analytics | `{CompanyName}_{JobTitle}_Analysis.docx` |
+| Cover Letter | `{CompanyName}_{JobTitle}_CoverLetter.docx` |
 
 Rules:
 - Job title component is capped at **25 characters** (truncated, no ellipsis)
-- Characters invalid in filenames (`/ \ : * ? " < > |`) are replaced with underscores
-- Multiple runs for the same company go into the same folder
+- Invalid filename chars (`/ \ : * ? " < > |`) are replaced with underscores
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Frontend | React | 18 |
-| Build tool | Vite | 5 |
-| Styling | Tailwind CSS | 3 |
-| Backend | Node.js + Express | 18.11+ / 4 |
-| AI — scan | Anthropic claude-haiku-4-5-20251001 | via SDK ^0.30.0 |
-| AI — optimise | Anthropic claude-sonnet-4-6 | via SDK ^0.30.0 |
-| Word export | docx (npm) | 8 |
-| File parsing | pdf-parse, mammoth | — |
-| Fonts | Playfair Display, DM Sans | Google Fonts |
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite 8, Tailwind CSS |
+| Backend | Node.js + Express 5, ES Modules |
+| AI — fast tasks | claude-haiku-4-5-20251001 (via `@anthropic-ai/sdk ^0.30.0`) |
+| AI — quality work | claude-sonnet-4-6 (via `@anthropic-ai/sdk ^0.30.0`) |
+| Word export | `docx` npm package (in-memory, base64) |
+| Frontend hosting | Vercel |
+| Backend hosting | Railway |
+| Dev runner | `concurrently` |
 
-> **Note on SDK version:** Prompt caching (`cache_control` on messages) requires `@anthropic-ai/sdk` **v0.30.0 or higher**. The `^0.30.0` range in `package.json` ensures this is always satisfied.
+> **Note on SDK version:** Prompt caching (`cache_control` on messages) requires `@anthropic-ai/sdk` **v0.30.0 or higher**.
 
 ---
 
@@ -206,7 +225,7 @@ Rules:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ Yes | — | Your Anthropic API key |
+| `ANTHROPIC_API_KEY` | Yes | — | Your Anthropic API key |
 | `PORT` | No | `3001` | Port for the Express backend |
 | `CLIENT_ORIGIN` | No | `http://localhost:3000` | CORS allowed origin — set to your frontend URL in production |
 
@@ -215,9 +234,9 @@ Rules:
 ## Security
 
 - The Anthropic API key is **server-side only** — it never appears in any frontend code or browser network request.
-- All Claude API calls go through `POST /api/scan` and `POST /api/optimize` on the Express backend.
+- All Claude API calls go through the Express backend.
 - `.env` is excluded from version control via `.gitignore`.
-- CORS origin is configurable via `CLIENT_ORIGIN` env var — not hardcoded.
+- CORS origin is configurable via `CLIENT_ORIGIN` — not hardcoded.
 
 ---
 
@@ -225,13 +244,13 @@ Rules:
 
 Five test resumes and three job descriptions are in `/test-data/`, each targeting a specific condition:
 
-| File | Condition |
+| File | Condition tested |
 |---|---|
 | `resume-1-complete.txt` | All 11 sections present — Section Review skipped |
-| `resume-2-missing-summary.txt` | 1 required section missing (Summary) |
+| `resume-2-missing-summary.txt` | 1 required section missing |
 | `resume-3-missing-summary-and-skills.txt` | 2 required sections missing |
 | `resume-4-nonstandard-headings.txt` | Non-standard headings — tests Section Mapper |
-| `resume-5-missing-three-required.txt` | 3 required sections missing — high-urgency flow |
+| `resume-5-missing-three-required.txt` | 3 required sections missing |
 
 See `test-data/TESTING-GUIDE.md` for step-by-step pass/fail checklists.
 
@@ -250,10 +269,15 @@ npm run dev
 - Check your `.env` file has no extra spaces and the key starts with `sk-ant-`
 - Verify you have API credits at [console.anthropic.com](https://console.anthropic.com)
 
-**Prompt caching not working / cache_control errors:**
+**Prompt caching not working:**
 - Run `npm install` to ensure `@anthropic-ai/sdk ^0.30.0` is installed
-- Check the server console — cache stats are logged after every API call
+- Check server console — cache stats are logged after every call
 
-**Optimisation takes longer than 45 seconds:**
-- Normal for long resumes (600+ words) or detailed JDs. The app waits up to 90 seconds.
-- Check the server console for which step is running
+**Optimization takes a long time:**
+- Normal for long resumes or detailed JDs — expect 90–120 seconds for a full optimize run
+- The progress stepper updates in real time so you can track which step is running
+- A warm-up notice appears after 8 seconds if no SSE events arrive (Railway cold start)
+
+---
+
+*Built with Claude Code · Powered by Anthropic Claude API*
