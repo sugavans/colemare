@@ -48,6 +48,27 @@ function ScoreBanner({ analysis, companyName, jobTitle, sectionsWereAdded, scanD
   );
 }
 
+// ─── Additional section content formatter ─────────────────────────────────────
+// Splits semicolon-delimited content (as produced by the AI) and renders it:
+//   ≤ 3 items → each item on its own line (easier to read)
+//   > 3 items → pipe-separated on one line (compact)
+function AdditionalSectionContent({ content }) {
+  const items = (content || '').split(';').map(s => s.trim()).filter(Boolean);
+  if (items.length === 0) return null;
+  if (items.length <= 3) {
+    return (
+      <div className="space-y-0.5">
+        {items.map((item, i) => (
+          <p key={i} className="text-sm text-gray-700" style={{ lineHeight: 1.7 }}>{item}</p>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <p className="text-sm text-gray-700" style={{ lineHeight: 1.7 }}>{items.join(' | ')}</p>
+  );
+}
+
 // ─── Section Divider ──────────────────────────────────────────────────────────
 function SectionDivider({ title }) {
   return (
@@ -177,7 +198,7 @@ function ResumeTab({ headers, experience }) {
           content ? (
             <section key={name} className="mb-6">
               <SectionDivider title={name} />
-              <p className="text-sm text-gray-700" style={{ lineHeight: 1.7 }}>{content}</p>
+              <AdditionalSectionContent content={content} />
             </section>
           ) : null
         )}
@@ -531,10 +552,22 @@ function parseCoverLetterLine(line, i) {
     );
   }
   if (plainBullet) {
+    const content  = plainBullet[1];
+    const colonIdx = content.indexOf(':');
+    if (colonIdx !== -1) {
+      const label = content.slice(0, colonIdx);
+      const rest  = content.slice(colonIdx); // includes the ":"
+      return (
+        <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+          <span style={{ flexShrink: 0 }}>•</span>
+          <span><strong>{label}</strong>{rest}</span>
+        </div>
+      );
+    }
     return (
       <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
         <span style={{ flexShrink: 0 }}>•</span>
-        <span>{plainBullet[1]}</span>
+        <span>{content}</span>
       </div>
     );
   }

@@ -20,7 +20,7 @@ const MODE_CONFIG = {
   match: {
     icon:     '📊',
     title:    'Scoring Your Resume',
-    subtitle: 'This usually takes 30–45 seconds.',
+    subtitle: 'This usually takes 45–90 seconds.',
     steps: [
       { id: 1, label: 'Extracting company & job info' },
       { id: 2, label: 'Analyzing resume against job description' },
@@ -30,7 +30,7 @@ const MODE_CONFIG = {
   coverletter: {
     icon:     '✉️',
     title:    'Drafting Your Cover Letter',
-    subtitle: 'This usually takes 30–45 seconds.',
+    subtitle: 'This usually takes 20–35 seconds.',
     steps: [
       { id: 1, label: 'Extracting company & job info' },
       { id: 2, label: 'Analyzing resume and job description' },

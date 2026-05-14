@@ -278,18 +278,29 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
   }
 
   // ── Additional / User-Added Sections
+  // Semicolons are the AI's item separator (per prompt rules: no em-dashes, use semicolons).
+  // ≤ 3 items → each on its own line; > 3 items → pipe-separated on one line.
   if (headers.additionalSections) {
     for (const [section, content] of Object.entries(headers.additionalSections)) {
       if (content && content.trim()) {
         const headingText = normaliseSectionName(section);
-        const cleanContent = stripEmDashes(content);
+        const items = stripEmDashes(content).split(';').map(s => s.trim()).filter(Boolean);
         children.push(...sectionHeading(headingText));
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: cleanContent, size: 20, font: 'Calibri', color: DARK_GREY })],
+        if (items.length <= 3) {
+          for (const item of items) {
+            children.push(new Paragraph({
+              children: [new TextRun({ text: item, size: 20, font: 'Calibri', color: DARK_GREY })],
+              spacing: { after: 80 },
+            }));
+          }
+          // Small gap after the section
+          children.push(new Paragraph({ spacing: { after: 120 } }));
+        } else {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: items.join(' | '), size: 20, font: 'Calibri', color: DARK_GREY })],
             spacing: { after: 200 },
-          })
-        );
+          }));
+        }
       }
     }
   }
@@ -732,11 +743,15 @@ export async function generateCoverLetterDocx(coverLetterText, companyName, jobT
         ],
       }));
     } else if (plainBulletMatch) {
-      children.push(new Paragraph({
-        bullet: { level: 0 },
-        spacing: { after: 100 },
-        children: [new TextRun({ text: plainBulletMatch[1], size: 22, font: 'Calibri', color: DARK_GREY })],
-      }));
+      const content  = plainBulletMatch[1];
+      const colonIdx = content.indexOf(':');
+      const runs = colonIdx !== -1
+        ? [
+            new TextRun({ text: content.slice(0, colonIdx),           bold: true, size: 22, font: 'Calibri', color: DARK_GREY }),
+            new TextRun({ text: content.slice(colonIdx) /* incl. : */, size: 22, font: 'Calibri', color: DARK_GREY }),
+          ]
+        : [new TextRun({ text: content, size: 22, font: 'Calibri', color: DARK_GREY })];
+      children.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 100 }, children: runs }));
     } else {
       children.push(new Paragraph({
         children: [new TextRun({ text: trimmed, size: 22, font: 'Calibri', color: DARK_GREY })],
