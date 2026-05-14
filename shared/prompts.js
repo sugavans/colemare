@@ -29,12 +29,18 @@ A section is PRESENT if it contains a heading AND meaningful content beneath it.
 A section is PARTIAL if it has a heading but only minimal or vague content (e.g. a single word, a placeholder).
 A section is MISSING if it is entirely absent or has only a heading with nothing beneath it.
 
+Also classify the resume layout type:
+  CHRONOLOGICAL — work experience is the primary/first major section, roles listed in reverse date order with clear dates on each position, no large skills section before the experience.
+  FUNCTIONAL    — skills, competencies, or areas of expertise appear as the first or dominant section (before work experience), OR roles carry no dates or only vague date ranges, OR the resume leads with a lengthy Skills/Core Competencies block followed by brief role listings.
+  HYBRID        — has a sizeable Skills or Core Competencies section prominently placed (near the top) AND also lists work experience entries with clear dates. When in doubt between CHRONOLOGICAL and FUNCTIONAL, classify as HYBRID if a skills section appears before experience.
+
 Return this exact JSON shape:
 {
   "companyName": "string — company name extracted from the job description. Default: 'Unknown_Company'",
   "jobTitle": "string — job title extracted from the job description. Default: 'Unknown_Role'",
   "jobLocation": "string — city and state/country where job is based, e.g. Chicago, IL. Default: Not available",
   "workType": "string — one of: Remote, Hybrid, On-site, or Not available based on JD content",
+  "resumeType": "chronological | functional | hybrid",
   "sectionsFound": ["array of section names present with meaningful content. Use exact names from the list above."],
   "sectionsPartial": ["array of section names present but with minimal/incomplete content"],
   "sectionsMissing": [
@@ -201,6 +207,15 @@ After ordering, review all detail bullets within each role as a set:
   - Identical/near-identical meaning: keep the stronger, silently discard the other.
   - Similar bullets (same verb AND same outcome, differently worded): keep the better one and add a similarityNotes entry — one human-readable sentence explaining the overlap and how to differentiate.
 
+STEP 7 — IMPACT BULLET (run last, once per role)
+Identify the single most compelling result for each role: the strongest quantified achievement OR the most JD-relevant capability synthesis.
+Rules:
+  - Maximum 20 words.
+  - Must reference a specific metric, outcome, or named deliverable from the original resume.
+  - Written as a standalone impact statement — NOT a full WHAT/HOW/SO WHAT bullet and NOT a repeat of any bullet in the bullets array.
+  - If no quantifiable metric exists: state the most JD-relevant capability in ≤20 words using a concrete named deliverable.
+  - This field is for display emphasis only — it will be rendered separately below the main bullets.
+
 Return ONLY valid JSON:
 {
   "experience": [
@@ -212,7 +227,8 @@ Return ONLY valid JSON:
       "roleTitle": "Job Title",
       "roleSummary": "Role Summary bullet — declarative opening using the Served as format",
       "bullets": ["Detail bullet 1", "Detail bullet 2"],
-      "similarityNotes": ["Optional: human-readable note about similar bullets"]
+      "similarityNotes": ["Optional: human-readable note about similar bullets"],
+      "impactBullet": "Max 20-word impact statement — strongest quantified achievement or JD-relevant synthesis for this role"
     }
   ]
 }`;
@@ -318,6 +334,7 @@ export function assembleOptimisedResumeText(headers, experience) {
     for (const bullet of (job.bullets || [])) {
       lines.push(`• ${bullet}`);
     }
+    if (job.impactBullet) lines.push(`★ ${job.impactBullet}`);
     lines.push('');
   }
 
@@ -340,11 +357,25 @@ export function assembleOptimisedResumeText(headers, experience) {
 
 // ─── Cover Letter ────────────────────────────────────────────────────────────
 
-export const COVER_LETTER_SYSTEM_PROMPT = `You are an expert career coach and professional writer. Your task is to draft a compelling cover letter based on the candidate's resume and the target job description.\n\nSTRICT RULES:\n1. Never fabricate any information not present in the resume.\n2. Address it to "The Hiring Manager" of the department at the company extracted from the JD.\n3. Structure: opening paragraph → 3–5 bullet points on fit → call-to-action closing → "Sincerely" sign-off.\n4. Opening paragraph: 2–3 sentences expressing genuine enthusiasm for the specific role and company, referencing something concrete from the JD.\n5. Bullet points: each one connects a specific achievement or skill from the resume to a specific requirement in the JD. Be concrete, not generic.\n6. Closing paragraph: confident call to action — invite the hiring manager to discuss how you can contribute.\n7. Tone: professional but warm. Not stiff or robotic.\n8. Length: 300–400 words total.\n9. Do NOT include a mailing address block or date — output the letter body only, starting with the salutation.\n10. Never use em-dashes (—) anywhere. Use commas or semicolons instead.\n11. Use American English spelling throughout.\n\nReturn ONLY the plain text of the cover letter — no JSON, no markdown, no code fences.`;
+export const COVER_LETTER_SYSTEM_PROMPT = `You are an expert career coach and professional writer. Draft a concise, high-impact cover letter based on the candidate's resume and the target job description.
 
-// ─── ATS Scoring Preview ─────────────────────────────────────────────────────
-// Used by Call 5 (Haiku) in /api/optimize — runs in parallel with Call 4.
-// Simulates an ATS evaluation of the optimized resume against the JD.
+STRICT RULES:
+1. Never fabricate any information not present in the resume.
+2. Salutation: "Dear Hiring Manager," — no mailing address, no date.
+3. Sign-off: "Sincerely," on its own line at the end — do not add the candidate's name.
+4. Structure:
+   - Opening paragraph (2–3 sentences): Express genuine enthusiasm for the specific role and company. Anchor one forward-verb sentence to the JD's top-priority duty using this pattern:
+       "[Forward verb phrase] [JD capability], as demonstrated by [specific evidence from the resume]."
+     Vary the forward verb — never repeat: Positioned to / Equipped to / Primed to / Built to / Ready to
+   - Bullet section: 3–5 concise bullets. Each bullet names one key JD skill or requirement and pairs it with a specific resume achievement or evidence. Format each as:
+       • [Skill/capability]: [one-sentence proof from the resume]
+   - Closing sentence: A confident call to action inviting the hiring manager to discuss your contribution.
+5. Total word count (salutation and sign-off excluded): 150–200 words across the opening paragraph, bullets, and closing sentence combined.
+6. Never use em-dashes (—). Use commas or semicolons instead.
+7. Use American English spelling throughout.
+8. Tone: professional but warm — not stiff, not generic.
+
+Return ONLY the plain text of the cover letter — no JSON, no markdown, no code fences.`;
 
 // ─── ATS Scoring Preview ─────────────────────────────────────────────────────
 // Call 5 (Haiku) — runs in parallel with Call 4. Returns JSON for dashboard UI.

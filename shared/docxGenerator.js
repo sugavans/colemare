@@ -65,12 +65,6 @@ function bulletParagraph(text) {
   });
 }
 
-// ─── Helper: sanitize contact block ──────────────────────────────────────────
-// Ensures name and email/phone are separated by " | " even if AI omits it.
-function sanitiseContact(contact) {
-  return (contact || '').trim();
-}
-
 // ─── Helper: strip em-dashes from text ───────────────────────────────────────
 function stripEmDashes(text) {
   return (text || '').replace(/—/g, ',').replace(/–/g, '-');
@@ -262,6 +256,23 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
       // Bullets
       for (const bullet of (job.bullets || [])) {
         children.push(bulletParagraph(bullet));
+      }
+
+      // Impact bullet — italic star callout, indented, rendered below detail bullets
+      if (job.impactBullet) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({
+              text: `★  ${job.impactBullet}`,
+              italics: true,
+              size: 19,
+              font: 'Calibri',
+              color: NAVY,
+            })],
+            indent: { left: 360 },
+            spacing: { before: 60, after: 100 },
+          })
+        );
       }
     }
   }
@@ -688,17 +699,28 @@ export async function generateCoverLetterDocx(coverLetterText, companyName, jobT
     })
   );
 
-  // Body — strip em-dashes then split on newlines, detect markdown bullets
+  // Body — strip em-dashes then split on newlines, detect bullet formats
   const lines = stripEmDashes(coverLetterText || '').split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Detect "- **bold text**" or "- **bold** rest" bullet pattern
-    const boldBulletMatch = trimmed.match(/^-\s+\*\*(.+?)\*\*(.*)$/);
-    // Detect plain "- text" bullet
-    const plainBulletMatch = !boldBulletMatch && trimmed.match(/^-\s+(.+)$/);
+    // New format: "• Skill label: evidence text"  (bold before the colon)
+    const dotBulletMatch = trimmed.match(/^[•·]\s+(.+)$/);
+    // Legacy markdown formats kept for backward compat
+    const boldBulletMatch = !dotBulletMatch && trimmed.match(/^-\s+\*\*(.+?)\*\*(.*)$/);
+    const plainBulletMatch = !dotBulletMatch && !boldBulletMatch && trimmed.match(/^-\s+(.+)$/);
 
-    if (boldBulletMatch) {
+    if (dotBulletMatch) {
+      const content  = dotBulletMatch[1];
+      const colonIdx = content.indexOf(':');
+      const runs = colonIdx !== -1
+        ? [
+            new TextRun({ text: content.slice(0, colonIdx),           bold: true, size: 22, font: 'Calibri', color: DARK_GREY }),
+            new TextRun({ text: content.slice(colonIdx) /* incl. : */, size: 22, font: 'Calibri', color: DARK_GREY }),
+          ]
+        : [new TextRun({ text: content, size: 22, font: 'Calibri', color: DARK_GREY })];
+      children.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 100 }, children: runs }));
+    } else if (boldBulletMatch) {
       const boldPart = boldBulletMatch[1].trim();
       const restPart = boldBulletMatch[2].trim();
       children.push(new Paragraph({

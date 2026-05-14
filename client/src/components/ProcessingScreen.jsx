@@ -6,7 +6,7 @@ const MODE_CONFIG = {
   optimize: {
     icon:     '✨',
     title:    'Optimizing Everything',
-    subtitle: 'This usually takes 60–90 seconds.',
+    subtitle: 'This usually takes 90–120 seconds.',
     steps: [
       { id: 1, label: 'Extracting company & job info + scanning resume sections' },
       { id: 2, label: 'Section review complete' },

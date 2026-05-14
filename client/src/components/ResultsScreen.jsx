@@ -162,6 +162,11 @@ function ResumeTab({ headers, experience }) {
                       ))}
                     </ul>
                   )}
+                  {job.impactBullet && (
+                    <p className="text-xs italic mt-2 pl-3 border-l-2" style={{ color: '#1F3864', borderColor: '#1F386480', lineHeight: 1.6 }}>
+                      ★ {job.impactBullet}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -490,8 +495,33 @@ function ScoreAnalyticsTab({ analysis, atsPreview, sectionsWereAdded }) {
 // ─── Cover Letter Tab ─────────────────────────────────────────────────────────
 function parseCoverLetterLine(line, i) {
   const trimmed = line.trim().replace(/—/g, ',').replace(/–/g, '-');
-  const boldBullet = trimmed.match(/^-\s+\*\*(.+?)\*\*(.*)$/);
-  const plainBullet = !boldBullet && trimmed.match(/^-\s+(.+)$/);
+
+  // New format: "• Skill label: evidence text"  (bold before the colon)
+  const dotBullet = trimmed.match(/^[•·]\s+(.+)$/);
+  // Legacy markdown formats kept for backward compat
+  const boldBullet = !dotBullet && trimmed.match(/^-\s+\*\*(.+?)\*\*(.*)$/);
+  const plainBullet = !dotBullet && !boldBullet && trimmed.match(/^-\s+(.+)$/);
+
+  if (dotBullet) {
+    const content = dotBullet[1];
+    const colonIdx = content.indexOf(':');
+    if (colonIdx !== -1) {
+      const label = content.slice(0, colonIdx);
+      const rest  = content.slice(colonIdx); // includes the ":"
+      return (
+        <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+          <span style={{ flexShrink: 0 }}>•</span>
+          <span><strong>{label}</strong>{rest}</span>
+        </div>
+      );
+    }
+    return (
+      <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+        <span style={{ flexShrink: 0 }}>•</span>
+        <span>{content}</span>
+      </div>
+    );
+  }
   if (boldBullet) {
     return (
       <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
