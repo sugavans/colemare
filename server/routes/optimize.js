@@ -58,7 +58,7 @@ const MAX_TOKENS = {
   META:         1024,
   HEADERS:      3000,
   EXPERIENCE:   4096,
-  ANALYSIS:     6000,
+  ANALYSIS:     8000,
   COVER_LETTER: 800,
   ATS_PREVIEW:  1400,
 };
