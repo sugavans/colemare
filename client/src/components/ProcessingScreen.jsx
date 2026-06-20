@@ -33,8 +33,8 @@ const MODE_CONFIG = {
     subtitle: 'This usually takes 20–35 seconds.',
     steps: [
       { id: 1, label: 'Extracting company & job info' },
-      { id: 2, label: 'Analyzing resume and job description' },
-      { id: 3, label: 'Drafting cover letter' },
+      { id: 2, label: 'Drafting cover letter' },
+      { id: 3, label: 'Formatting and finalizing' },
     ],
   },
 };

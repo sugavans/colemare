@@ -1,7 +1,5 @@
 RESUME 4 — TEST CONDITION: NON-STANDARD SECTION HEADINGS
-Expected behaviour: Section Review screen APPEARS. AI may flag sections as missing because headings
-                    don't match standard names. Tests the "Map My Sections" (🔀) path.
-                    Headings used: "About Me", "Background", "What I Know", "My Toolkit", "Where I've Been"
+Expected behaviour: Section Review screen APPEARS. AI may flag sections as missing because headings don't match standard names. Tests the "Map My Sections" (🔀) path.                    Headings used: "About Me", "Background", "What I Know", "My Toolkit", "Where I've Been"
 Pair with: JD-B (Data Engineer)
 ================================================================================
 

@@ -8,18 +8,20 @@ import Footer from './Footer';
 const MODE = { CHOICE: 'choice', ADD: 'add', MAP: 'map' };
 
 export default function SectionReviewScreen({ scanData, onComplete }) {
-  const [mode, setMode]                       = useState(MODE.CHOICE);
-  const [confirmingProceed, setConfirmingProceed] = useState(false);
+  const isFunctional = scanData.resumeType === 'functional' || scanData.resumeType === 'hybrid';
+  const [mode, setMode]                             = useState(MODE.CHOICE);
+  const [confirmingProceed, setConfirmingProceed]   = useState(false);
+  const [preserveJobOrder, setPreserveJobOrder]     = useState(isFunctional);
 
   const requiredMissing  = scanData.sectionsMissing?.filter(s => s.required)  || [];
   const optionalMissing  = scanData.sectionsMissing?.filter(s => !s.required) || [];
   const hasRequiredMissing = requiredMissing.length > 0;
 
-  const handleAddSave    = (additions) => onComplete(additions);
-  const handleMapConfirm = (mappings)  => onComplete(mappings);
+  const handleAddSave    = (additions) => onComplete(additions, { preserveJobOrder });
+  const handleMapConfirm = (mappings)  => onComplete(mappings,  { preserveJobOrder });
   const handleProceedAsIs = () => {
     if (!confirmingProceed && hasRequiredMissing) { setConfirmingProceed(true); return; }
-    onComplete({});
+    onComplete({}, { preserveJobOrder });
   };
 
   return (
@@ -29,10 +31,42 @@ export default function SectionReviewScreen({ scanData, onComplete }) {
         <p className="text-gray-500 text-sm">We scanned your resume before optimising. Review detected sections below.</p>
         {scanData.companyName && scanData.companyName !== 'Unknown_Company' && (
           <p className="text-xs text-navy-light mt-1">
-            Detected: <strong>{scanData.jobTitle}</strong> at <strong>{scanData.companyName}</strong>
+            Optimizing for: <strong>{scanData.jobTitle}</strong> at <strong>{scanData.companyName}</strong>
           </p>
         )}
       </div>
+
+      {isFunctional && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-card">
+          <div className="flex items-start gap-3">
+            <span className="text-lg shrink-0">🔀</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-blue-800 mb-1">
+                {scanData.resumeType === 'functional' ? 'Functional resume detected' : 'Hybrid resume detected'}
+              </p>
+              <p className="text-xs text-blue-600 mb-3">
+                {scanData.resumeType === 'functional'
+                  ? 'Your resume leads with skills rather than a chronological job history. The optimizer can preserve your custom job order instead of reordering by JD relevance.'
+                  : 'Your resume combines a strong skills section with dated experience. You can preserve your job ordering if it reflects a deliberate non-standard sequence.'}
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={preserveJobOrder}
+                  onChange={e => setPreserveJobOrder(e.target.checked)}
+                  className="w-4 h-4 accent-navy"
+                />
+                <span className="text-sm text-blue-800 font-medium">Preserve my job order</span>
+              </label>
+              <p className="text-xs text-blue-500 mt-1 ml-6">
+                {preserveJobOrder
+                  ? 'Job roles will appear in the same order as your original resume.'
+                  : 'Job roles will be reordered by relevance to the job description.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SectionStatusPanel scanData={scanData} />
 

@@ -30,9 +30,9 @@ A section is PARTIAL if it has a heading but only minimal or vague content (e.g.
 A section is MISSING if it is entirely absent or has only a heading with nothing beneath it.
 
 Also classify the resume layout type:
-  CHRONOLOGICAL — work experience is the primary/first major section, roles listed in reverse date order with clear dates on each position, no large skills section before the experience.
-  FUNCTIONAL    — skills, competencies, or areas of expertise appear as the first or dominant section (before work experience), OR roles carry no dates or only vague date ranges, OR the resume leads with a lengthy Skills/Core Competencies block followed by brief role listings.
-  HYBRID        — has a sizeable Skills or Core Competencies section prominently placed (near the top) AND also lists work experience entries with clear dates. When in doubt between CHRONOLOGICAL and FUNCTIONAL, classify as HYBRID if a skills section appears before experience.
+  CHRONOLOGICAL — work experience is the primary/first major section, roles listed in reverse date order with clear company names, job titles, and date ranges on each position. No large skills section before the experience.
+  FUNCTIONAL    — experience is organized as skill or competency clusters (groups of capabilities with attribution lines listing multiple employers) rather than individual chronological job entries. Roles carry no specific date ranges per entry, OR a large Skills/Competencies block leads the experience section with only brief employer listings beneath it. Use this type whenever the Work Experience section cannot be read as a standard company → role → dates sequence.
+  HYBRID        — has a sizeable Skills or Core Competencies section prominently placed near the top AND ALSO lists standard work experience entries with individual company names, job titles, and clear date ranges per role. Both structures are clearly present. When in doubt between CHRONOLOGICAL and HYBRID, prefer HYBRID if a skills section appears before the experience block. When in doubt between FUNCTIONAL and HYBRID, prefer FUNCTIONAL if the experience entries lack individual company/title/date structure.
 
 Return this exact JSON shape:
 {
@@ -108,7 +108,7 @@ Return ONLY valid JSON with no preamble, code fences, or markdown:
 {
   "optimisedTitle": "Job title for the resume header — aligned to the JD",
   "contact": "The full contact block formatted as: Full Name | email@address.com | phone | location | linkedin. Always use ' | ' as the separator between every element. Never concatenate elements without a separator.",
-  "summary": "Exactly 3 sentences using the forward-verb structure above",
+  "summary": "Exactly 3 sentences using the forward-verb structure above — or null if the original resume has no summary, objective, or opening statement at all",
   "skills": ["Skill 1", "Skill 2", "...ordered by cluster: domain identity first, then technical core, then leadership"],
   "tools": ["Tool 1", "Tool 2", "...only tools relevant to the JD, ordered by JD priority"],
   "additionalSections": {
@@ -118,12 +118,51 @@ Return ONLY valid JSON with no preamble, code fences, or markdown:
     "Publications and Presentations": "Publications, talks, articles — or empty string if none",
     "Volunteer and Community": "Volunteer work and community involvement — or empty string if none",
     "Languages": "Languages and proficiency levels — or empty string if none"
-  }
+  },
+  "preservedSections": []
   ADDITIONAL SECTIONS RULES:
   - Use American English spelling throughout.
   - Never use em-dashes (—) in any section content. Use commas or semicolons instead.
   - Only include a section if the original resume contains genuine content for it.
   - Pass content through accurately — do not fabricate or embellish.
+
+  PRESERVED SECTIONS RULES:
+  Non-standard top-level sections that fall outside the fixed schema above must be captured in preservedSections.
+  Each entry has exactly four fields: name, type, position, content.
+
+  name: REQUIRED. Copy the exact section heading from the original resume (e.g. "Affiliations & Hobbies", "Notable Achievements").
+        Never return null, undefined, or empty string for name — if you cannot find a heading, use the most descriptive label
+        from the content itself (e.g. "Professional Memberships", "Interests").
+
+  Each section gets exactly one entry. Assign type and position as follows:
+
+  • ACCOMPLISHMENTS / NOTABLE ACHIEVEMENTS that appear BEFORE the work experience section
+    → type: "bullets", position: "pre_experience"
+    → content: array of rewritten bullet strings — rewrite against the JD (same what/how/so-what rules), no fabrication
+
+  • LEADERSHIP PRINCIPLES / PHILOSOPHY / VALUES / GUIDING PRINCIPLES
+    → type: "text", position: "post_experience"
+    → content: single string — preserve the candidate's language closely; light tightening only; never rewrite in JD voice
+
+  • RECOMMENDATIONS / TESTIMONIALS
+    → type: "verbatim", position: "post_experience"
+    → content: array of strings — copy EXACTLY from original; never paraphrase, reorder, or omit a word
+
+  • AFFILIATIONS / BOARD MEMBERSHIPS / PROFESSIONAL MEMBERSHIPS / HOBBIES / INTERESTS
+    → type: "text", position: "post_experience"
+    → content: single string — pass through as-is; no rewriting
+
+  • FUNCTIONAL EXPERIENCE CLUSTERS — only when the resume is FUNCTIONAL (not hybrid):
+    → type: "functional_clusters", position: "experience"
+    → content: array of objects:
+        { "heading": "exact cluster heading from original (e.g. STRATEGY & PLANNING)",
+          "attribution": "any attribution or employer line if present — or empty string if absent",
+          "bullets": ["Rewritten bullet 1", "Rewritten bullet 2", ...] }
+    → heading: copy exactly from original — do NOT rename or reword
+    → attribution: copy exactly from original
+    → bullets: rewrite each bullet against the JD; same what/how/so-what rules as experience bullets; no fabrication
+
+  If no non-standard sections exist, return an empty array: "preservedSections": []
 }`;
 
 // ─── API Call 2: Rewrite Experience Bullets ─────────────────────────────────
@@ -207,15 +246,6 @@ After ordering, review all detail bullets within each role as a set:
   - Identical/near-identical meaning: keep the stronger, silently discard the other.
   - Similar bullets (same verb AND same outcome, differently worded): keep the better one and add a similarityNotes entry — one human-readable sentence explaining the overlap and how to differentiate.
 
-STEP 7 — IMPACT BULLET (run last, once per role)
-Identify the single most compelling result for each role: the strongest quantified achievement OR the most JD-relevant capability synthesis.
-Rules:
-  - Maximum 20 words.
-  - Must reference a specific metric, outcome, or named deliverable from the original resume.
-  - Written as a standalone impact statement — NOT a full WHAT/HOW/SO WHAT bullet and NOT a repeat of any bullet in the bullets array.
-  - If no quantifiable metric exists: state the most JD-relevant capability in ≤20 words using a concrete named deliverable.
-  - This field is for display emphasis only — it will be rendered separately below the main bullets.
-
 Return ONLY valid JSON:
 {
   "experience": [
@@ -227,8 +257,7 @@ Return ONLY valid JSON:
       "roleTitle": "Job Title",
       "roleSummary": "Role Summary bullet — declarative opening using the Served as format",
       "bullets": ["Detail bullet 1", "Detail bullet 2"],
-      "similarityNotes": ["Optional: human-readable note about similar bullets"],
-      "impactBullet": "Max 20-word impact statement — strongest quantified achievement or JD-relevant synthesis for this role"
+      "similarityNotes": ["Optional: human-readable note about similar bullets"]
     }
   ]
 }`;
@@ -304,17 +333,39 @@ Return ONLY valid JSON:
 /**
  * Assemble a plain-text representation of the optimized resume
  * from the structured data returned by API Calls 1 and 2.
+ *
+ * @param {object}   headers          - Output of Call 1 (header sections)
+ * @param {Array}    experience        - Output of Call 2 (chronological jobs), empty for functional resumes
+ * @param {Array}    preservedSections - Non-standard sections from Call 1 (pre/post/functional clusters)
  */
-export function assembleOptimisedResumeText(headers, experience) {
+export function assembleOptimisedResumeText(headers, experience, preservedSections = []) {
+  // Normalise — AI occasionally returns {} or a string instead of []
+  const ps = Array.isArray(preservedSections) ? preservedSections : [];
   const lines = [];
 
   lines.push(headers.optimisedTitle || '');
   lines.push('');
   lines.push(headers.contact || '');
   lines.push('');
-  lines.push('PROFESSIONAL SUMMARY');
-  lines.push(headers.summary || '');
-  lines.push('');
+
+  // Summary is nullable — functional resumes that never had one get null
+  if (headers.summary) {
+    lines.push('PROFESSIONAL SUMMARY');
+    lines.push(headers.summary);
+    lines.push('');
+  }
+
+  // Pre-experience preserved sections (e.g. Accomplishments)
+  for (const s of ps.filter(s => s.position === 'pre_experience')) {
+    lines.push((s.name || 'SECTION').toUpperCase());
+    if (Array.isArray(s.content)) {
+      for (const item of s.content) lines.push(`• ${item}`);
+    } else {
+      lines.push(s.content || '');
+    }
+    lines.push('');
+  }
+
   lines.push('SKILLS / CORE COMPETENCIES');
   lines.push((headers.skills || []).join(' | '));
   lines.push('');
@@ -325,16 +376,43 @@ export function assembleOptimisedResumeText(headers, experience) {
     lines.push('');
   }
 
-  lines.push('WORK EXPERIENCE');
-  for (const job of (experience || [])) {
-    lines.push(`${job.company} | ${job.startDate} – ${job.endDate}`);
-    if (job.companyDescription) lines.push(job.companyDescription);
-    lines.push(`${job.roleTitle}`);
-    if (job.roleSummary) lines.push(job.roleSummary);
-    for (const bullet of (job.bullets || [])) {
-      lines.push(`• ${bullet}`);
+  // Experience section — functional clusters OR standard chronological jobs
+  const functionalClusters = ps.find(
+    s => s.position === 'experience' && s.type === 'functional_clusters'
+  );
+
+  if (functionalClusters && Array.isArray(functionalClusters.content)) {
+    lines.push('WORK EXPERIENCE');
+    for (const cluster of functionalClusters.content) {
+      lines.push(cluster.heading || '');
+      if (cluster.attribution) lines.push(cluster.attribution);
+      for (const bullet of (cluster.bullets || [])) {
+        lines.push(`• ${bullet}`);
+      }
+      lines.push('');
     }
-    if (job.impactBullet) lines.push(`★ ${job.impactBullet}`);
+  } else if (experience && experience.length > 0) {
+    lines.push('WORK EXPERIENCE');
+    for (const job of experience) {
+      lines.push(`${job.company} | ${job.startDate} – ${job.endDate}`);
+      if (job.companyDescription) lines.push(job.companyDescription);
+      lines.push(`${job.roleTitle}`);
+      if (job.roleSummary) lines.push(job.roleSummary);
+      for (const bullet of (job.bullets || [])) {
+        lines.push(`• ${bullet}`);
+      }
+      lines.push('');
+    }
+  }
+
+  // Post-experience preserved sections (Leadership Principles, Recommendations, etc.)
+  for (const s of ps.filter(s => s.position === 'post_experience')) {
+    lines.push((s.name || 'SECTION').toUpperCase());
+    if (Array.isArray(s.content)) {
+      for (const item of s.content) lines.push(item);
+    } else {
+      lines.push(s.content || '');
+    }
     lines.push('');
   }
 
@@ -350,10 +428,6 @@ export function assembleOptimisedResumeText(headers, experience) {
 
   return lines.join('\n');
 }
-
-// ─── Match-Only Analysis ─────────────────────────────────────────────────────
-// Used by /api/match-only — analyzes the ORIGINAL (unoptimized) resume vs JD.
-// Reuses MATCH_ANALYSIS_SYSTEM_PROMPT; only the user prompt differs.
 
 // ─── Cover Letter ────────────────────────────────────────────────────────────
 
@@ -388,7 +462,7 @@ DISPOSITION values (pick one): "Advance — screen" | "Advance — interview" | 
 DISPOSITION_COLOR values: "green" (advance) | "amber" (hold) | "red" (pass)
 RESULT values for eligibilityChecks: "pass" | "fail" | "caution"
 
-Return this exact JSON structure:
+Return this exact JSON structure (scalars first, arrays last — this order is required):
 {
   "atsScore": integer 0-100,
   "keywordMatch": integer 0-100,
@@ -396,11 +470,11 @@ Return this exact JSON structure:
   "disposition": "one of the DISPOSITION values above",
   "dispositionColor": "green | amber | red",
   "summary": "One sentence explaining the disposition to a talent partner",
-  "eligibilityChecks": [
-    { "requirement": "Requirement label", "evidence": "Evidence found or Not evidenced", "result": "pass | fail | caution" }
-  ],
   "scoringBreakdown": [
     { "dimension": "Dimension name", "score": integer 0-100 }
+  ],
+  "eligibilityChecks": [
+    { "requirement": "Requirement label", "evidence": "Evidence found or Not evidenced", "result": "pass | fail | caution" }
   ]
 }
 

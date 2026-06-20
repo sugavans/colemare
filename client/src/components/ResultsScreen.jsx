@@ -70,19 +70,114 @@ function AdditionalSectionContent({ content }) {
 }
 
 // ─── Section Divider ──────────────────────────────────────────────────────────
+// Guards against empty / null titles — never renders a bare <hr> with no heading.
 function SectionDivider({ title }) {
+  const label = title?.trim() || '';
+  if (!label) return null;
   return (
     <div className="mt-6 mb-3">
-      <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1F3864' }}>{title}</h2>
+      <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#1F3864' }}>{label}</h2>
       <hr style={{ borderColor: '#1F3864', marginTop: '4px' }} />
     </div>
   );
 }
 
+// ─── Preserved Section Block ──────────────────────────────────────────────────
+// Renders a non-standard section captured by Call 1 (bullets / text / verbatim /
+// functional_clusters). Used before experience (pre_experience), after (post_experience),
+// and in place of experience for functional resumes (experience + functional_clusters).
+
+// Returns a non-empty display name for a preserved section.
+// Falls back to a type-appropriate label when the AI returns null / empty.
+function preservedSectionTitle(section) {
+  if (section.name && section.name.trim()) return section.name.trim();
+  switch (section.type) {
+    case 'bullets':           return 'Accomplishments';
+    case 'verbatim':          return 'Recommendations';
+    case 'functional_clusters': return 'Work Experience';
+    case 'text':
+    default:                  return 'Additional Information';
+  }
+}
+
+function PreservedSectionBlock({ section }) {
+  switch (section.type) {
+    case 'bullets':
+      return (
+        <section className="mb-6">
+          <SectionDivider title={preservedSectionTitle(section)} />
+          <ul className="space-y-1.5 list-none mt-2">
+            {(Array.isArray(section.content) ? section.content : []).map((b, i) => (
+              <li key={i} className="text-sm text-gray-700 flex items-start gap-2" style={{ lineHeight: 1.6 }}>
+                <span className="text-navy mt-0.5 shrink-0">•</span>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    case 'text':
+      return (
+        <section className="mb-6">
+          <SectionDivider title={preservedSectionTitle(section)} />
+          <p className="text-sm text-gray-700" style={{ lineHeight: 1.7 }}>
+            {typeof section.content === 'string' ? section.content : ''}
+          </p>
+        </section>
+      );
+    case 'verbatim':
+      return (
+        <section className="mb-6">
+          <SectionDivider title={preservedSectionTitle(section)} />
+          <div className="space-y-3 mt-2">
+            {(Array.isArray(section.content) ? section.content : [section.content]).map((item, i) => (
+              <blockquote key={i} className="text-sm text-gray-600 italic pl-3 border-l-2"
+                style={{ borderColor: '#1F386450', lineHeight: 1.7 }}>
+                {item}
+              </blockquote>
+            ))}
+          </div>
+        </section>
+      );
+    case 'functional_clusters':
+      return (
+        <section className="mb-6">
+          <SectionDivider title={preservedSectionTitle(section)} />
+          <div className="space-y-6 mt-2">
+            {(Array.isArray(section.content) ? section.content : []).map((cluster, i) => (
+              <div key={i}>
+                <p className="text-sm font-bold mt-2" style={{ color: '#1F3864' }}>{cluster.heading}</p>
+                {cluster.attribution && (
+                  <p className="text-xs text-gray-500 italic mt-0.5">{cluster.attribution}</p>
+                )}
+                {cluster.bullets && cluster.bullets.length > 0 && (
+                  <ul className="mt-2 space-y-1.5 list-none">
+                    {cluster.bullets.map((b, j) => (
+                      <li key={j} className="text-sm text-gray-700 flex items-start gap-2" style={{ lineHeight: 1.6 }}>
+                        <span className="text-navy mt-0.5 shrink-0">•</span>
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    default:
+      return null;
+  }
+}
+
 // ─── Optimized Resume Tab ─────────────────────────────────────────────────────
-function ResumeTab({ headers, experience }) {
+function ResumeTab({ headers, experience, preservedSections = [] }) {
   // Group similarityNotes by company for easy lookup
   const allNotes = (experience || []).flatMap(job => (job.similarityNotes || []).map(n => ({ company: job.company, note: n })));
+
+  const preExperience      = preservedSections.filter(s => s.position === 'pre_experience');
+  const postExperience     = preservedSections.filter(s => s.position === 'post_experience');
+  const functionalClusters = preservedSections.find(s => s.position === 'experience' && s.type === 'functional_clusters');
 
   return (
     <div>
@@ -135,12 +230,16 @@ function ResumeTab({ headers, experience }) {
           );
         })()}
 
+        {/* Summary — nullable for functional resumes */}
         {headers?.summary && (
           <section className="mb-6">
             <SectionDivider title="Professional Summary" />
             <p className="text-sm text-gray-700" style={{ lineHeight: 1.7 }}>{headers.summary}</p>
           </section>
         )}
+
+        {/* Pre-experience preserved sections (e.g. Accomplishments) */}
+        {preExperience.map((s, i) => <PreservedSectionBlock key={`pre-${i}`} section={s} />)}
 
         {headers?.skills && headers.skills.length > 0 && (
           <section className="mb-6">
@@ -156,7 +255,10 @@ function ResumeTab({ headers, experience }) {
           </section>
         )}
 
-        {experience && experience.length > 0 && (
+        {/* Experience — functional clusters OR standard chronological jobs */}
+        {functionalClusters ? (
+          <PreservedSectionBlock section={functionalClusters} />
+        ) : experience && experience.length > 0 ? (
           <section className="mb-6">
             <SectionDivider title="Work Experience" />
             <div className="space-y-6">
@@ -183,25 +285,24 @@ function ResumeTab({ headers, experience }) {
                       ))}
                     </ul>
                   )}
-                  {job.impactBullet && (
-                    <p className="text-xs italic mt-2 pl-3 border-l-2" style={{ color: '#1F3864', borderColor: '#1F386480', lineHeight: 1.6 }}>
-                      ★ {job.impactBullet}
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
           </section>
-        )}
+        ) : null}
 
-        {headers?.additionalSections && Object.entries(headers.additionalSections).map(([name, content]) =>
-          content ? (
+        {/* Post-experience preserved sections (Leadership Principles, Recommendations, etc.) */}
+        {postExperience.map((s, i) => <PreservedSectionBlock key={`post-${i}`} section={s} />)}
+
+        {headers?.additionalSections && Object.entries(headers.additionalSections)
+          .filter(([name, content]) => name?.trim() && content)
+          .map(([name, content]) => (
             <section key={name} className="mb-6">
               <SectionDivider title={name} />
               <AdditionalSectionContent content={content} />
             </section>
-          ) : null
-        )}
+          ))
+        }
       </div>
     </div>
   );
@@ -837,7 +938,7 @@ export default function ResultsScreen({ results, exportData, scanData, onReset, 
             sectionsWereAdded={sectionsWereAdded}
           />
         )}
-        {activeTab === 'resume'         && <ResumeTab headers={headers} experience={experience} />}
+        {activeTab === 'resume'         && <ResumeTab headers={headers} experience={experience} preservedSections={results.preservedSections || []} />}
         {activeTab === 'coverletter'    && <CoverLetterTab coverLetter={coverLetter} onDownload={handleDownload} exportData={exportData} />}
       </div>
 

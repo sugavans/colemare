@@ -8,7 +8,7 @@
  * POST /api/cover-letter — Cover letter draft                   (Haiku + Sonnet)
  *
  * ─── Model Routing ──────────────────────────────────────────────────────────
- *   HAIKU   claude-haiku-4-5-20251001  — Call 0 only (fast, cheap scan)
+ *   HAIKU   claude-haiku-4-5-20251001  — scan, meta extraction, ATS preview (Call 5)
  *   SONNET  claude-sonnet-4-6          — Calls 1–4 (quality optimisation)
  *
  * ─── Prompt Caching Strategy ────────────────────────────────────────────────
@@ -54,13 +54,14 @@ const SONNET = 'claude-sonnet-4-6';
 
 // ─── Token limits — named so intent is clear at each call site ────────────────
 const MAX_TOKENS = {
-  SCAN:         2048,
-  META:         1024,
-  HEADERS:      3000,
-  EXPERIENCE:   4096,
-  ANALYSIS:     8000,
-  COVER_LETTER: 800,
-  ATS_PREVIEW:  1400,
+  SCAN:               2048,
+  META:               1024,
+  HEADERS:            3000,
+  HEADERS_FUNCTIONAL: 4500,  // functional/hybrid: Call 1 also rewrites experience clusters
+  EXPERIENCE:         4096,
+  ANALYSIS:           8000,
+  COVER_LETTER:       1200,
+  ATS_PREVIEW:        2000,
 };
 
 // ─── Timing constants ─────────────────────────────────────────────────────────
@@ -173,6 +174,18 @@ async function callClaudeStreaming({ model, systemPrompt, contentBlocks, maxToke
   }, label);
 }
 
+// Ensure preservedSections is always a proper array regardless of what the AI returns.
+// Claude occasionally returns {} (empty object) or a string instead of [].
+function normalisePreservedSections(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') {
+    // Handle {"0": {...}, "1": {...}} style
+    const arr = Object.values(value);
+    if (arr.length > 0 && typeof arr[0] === 'object') return arr;
+  }
+  return [];
+}
+
 function setupSSE(res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -239,7 +252,7 @@ router.post('/scan', async (req, res) => {
 
 // ─── POST /api/optimize ───────────────────────────────────────────────────────
 router.post('/optimize', async (req, res) => {
-  const { resumeText, jobDescription, companyName, jobTitle, sectionAdditions, preserveJobOrder } = req.body;
+  const { resumeText, jobDescription, companyName, jobTitle, sectionAdditions, preserveJobOrder, resumeType } = req.body;
   if (!resumeText || !jobDescription) {
     return res.status(400).json({ error: 'resumeText and jobDescription are required.' });
   }
@@ -269,63 +282,126 @@ router.post('/optimize', async (req, res) => {
     await new Promise(r => setTimeout(r, ANALYZE_PAUSE_MS));
     emit(res, 'step', { step: 3, status: 'complete' });
 
-    // ── Calls 1 + 2 in parallel ───────────────────────────────────────────────
-    // Both only need the original resume + JD — no dependency between them.
-    // Running in parallel saves ~15–20 s vs sequential execution.
+    // ── Calls 1 + 2 ───────────────────────────────────────────────────────────
+    // FUNCTIONAL resumes (skill-cluster experience, no standard job entries):
+    //   Call 1 runs alone with a larger token budget (4500t). It rewrites headers
+    //   AND captures skill clusters into preservedSections. Call 2 is skipped.
+    // CHRONOLOGICAL and HYBRID resumes:
+    //   Calls 1 + 2 run in parallel (saves ~15–20 s). Call 1 captures any
+    //   non-standard sections (Accomplishments, Leadership Principles, etc.)
+    //   into preservedSections. Call 2 rewrites chronological experience.
     emit(res, 'step', { step: 4, status: 'active' });
     emit(res, 'step', { step: 5, status: 'active' });
 
-    const [headersRaw, experienceRaw] = await Promise.allSettled([
-      callClaude({
-        model: SONNET, systemPrompt: OPTIMISE_HEADERS_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.HEADERS, label: 'Call 1 / headers',
-        contentBlocks: [
-          jdBlock(jobDescription),
-          resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
-          instrBlock(sectionContextNote
-            ? `SECTION CONTEXT:\n---\n${sectionContextNote}\n---\n\nRewrite the header sections to align with the job description. Return only valid JSON.`
-            : `Rewrite the header sections to align with the job description. Return only valid JSON.`),
-        ],
-      }),
-      callClaude({
-        model: SONNET, systemPrompt: OPTIMISE_EXPERIENCE_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.EXPERIENCE, label: 'Call 2 / experience',
-        contentBlocks: [
-          jdBlock(jobDescription),
-          resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
-          instrBlock(preserveJobOrder
-            ? 'Rewrite all experience bullets using the what/how/so-what structure, ordered by JD relevance. Return only valid JSON.\n\nIMPORTANT: Preserve the exact original order of job roles. Do not reorder, move, or rearrange any job entry.'
-            : 'Rewrite all experience bullets using the what/how/so-what structure, ordered by JD relevance. Return only valid JSON.'),
-        ],
-      }),
-    ]);
+    // Only bypass Call 2 for purely functional resumes (skill-cluster experience).
+    // HYBRID resumes retain Call 2 because they have real chronological jobs.
+    const isFunctionalResume = resumeType === 'functional';
+    console.log(`  resumeType: ${resumeType || '(not provided)'} | functional bypass: ${isFunctionalResume}`);
 
-    if (headersRaw.status === 'rejected') {
-      console.error('[Call 1 / headers] Error:', headersRaw.reason?.message);
-      emit(res, 'error', { message: 'Failed to optimize resume header. Please try again.' });
-      return res.end();
-    }
-    if (experienceRaw.status === 'rejected') {
-      console.error('[Call 2 / experience] Error:', experienceRaw.reason?.message);
-      emit(res, 'error', { message: 'Failed to optimize experience bullets. Please try again.' });
-      return res.end();
-    }
+    let headers, experienceData, preservedSections;
 
-    let headers, experienceData;
-    try {
-      headers = safeParseJSON(headersRaw.value);
-      // Normalize contact to string — AI occasionally returns it as char array
-      if (Array.isArray(headers.contact)) headers.contact = headers.contact.join('');
-      if (typeof headers.contact !== 'string') headers.contact = String(headers.contact || '');
-    } catch (err) {
-      console.error('[Call 1 / headers] Parse error:', err.message);
-      emit(res, 'error', { message: 'Could not parse header response. Please try again.' });
-      return res.end();
-    }
-    try {
-      experienceData = safeParseJSON(experienceRaw.value).experience || [];
-    } catch (err) {
-      console.error('[Call 2 / experience] Parse error:', err.message);
-      emit(res, 'error', { message: 'Could not parse experience response. Please try again.' });
-      return res.end();
+    if (isFunctionalResume) {
+      // ── Functional path: single Call 1, skip Call 2 ──────────────────────────
+      let headersRaw;
+      try {
+        headersRaw = await callClaude({
+          model: SONNET, systemPrompt: OPTIMISE_HEADERS_SYSTEM_PROMPT,
+          maxTokens: MAX_TOKENS.HEADERS_FUNCTIONAL, label: 'Call 1 / headers+clusters',
+          contentBlocks: [
+            jdBlock(jobDescription),
+            resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
+            instrBlock(
+              (sectionContextNote
+                ? `SECTION CONTEXT:\n---\n${sectionContextNote}\n---\n\n`
+                : '')
+              + 'This is a FUNCTIONAL resume — experience is organized as skill/competency clusters, '
+              + 'not as standard chronological job entries. '
+              + 'Rewrite the header sections as normal. '
+              + 'Capture every experience skill cluster in preservedSections with '
+              + 'type "functional_clusters" and position "experience". '
+              + 'Rewrite cluster bullets against the JD using the what/how/so-what rules. '
+              + 'Do NOT attempt to recast clusters as chronological job entries. '
+              + 'Return only valid JSON.'
+            ),
+          ],
+        });
+      } catch (err) {
+        console.error('[Call 1 / headers+clusters] Error:', err.message);
+        emit(res, 'error', { message: 'Failed to optimize resume header. Please try again.' });
+        return res.end();
+      }
+      try {
+        headers = safeParseJSON(headersRaw);
+        if (Array.isArray(headers.contact)) headers.contact = headers.contact.join('');
+        if (typeof headers.contact !== 'string') headers.contact = String(headers.contact || '');
+      } catch (err) {
+        console.error('[Call 1 / headers+clusters] Parse error:', err.message);
+        emit(res, 'error', { message: 'Could not parse header response. Please try again.' });
+        return res.end();
+      }
+      experienceData    = [];  // functional resumes have no chronological experience array
+      preservedSections = normalisePreservedSections(headers.preservedSections);
+      if (preservedSections.length > 0) {
+        console.log(`  preservedSections (functional): ${preservedSections.length} section(s) — ${preservedSections.map(s => s.type).join(', ')}`);
+      }
+
+    } else {
+      // ── Chronological / Hybrid path: Calls 1 + 2 in parallel ─────────────────
+      const [headersRaw, experienceRaw] = await Promise.allSettled([
+        callClaude({
+          model: SONNET, systemPrompt: OPTIMISE_HEADERS_SYSTEM_PROMPT,
+          maxTokens: MAX_TOKENS.HEADERS, label: 'Call 1 / headers',
+          contentBlocks: [
+            jdBlock(jobDescription),
+            resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
+            instrBlock(sectionContextNote
+              ? `SECTION CONTEXT:\n---\n${sectionContextNote}\n---\n\nRewrite the header sections to align with the job description. Return only valid JSON.`
+              : `Rewrite the header sections to align with the job description. Return only valid JSON.`),
+          ],
+        }),
+        callClaude({
+          model: SONNET, systemPrompt: OPTIMISE_EXPERIENCE_SYSTEM_PROMPT,
+          maxTokens: MAX_TOKENS.EXPERIENCE, label: 'Call 2 / experience',
+          contentBlocks: [
+            jdBlock(jobDescription),
+            resumeBlock(fullResumeText, 'ORIGINAL RESUME'),
+            instrBlock(preserveJobOrder
+              ? 'Rewrite all experience bullets using the what/how/so-what structure, ordered by JD relevance. Return only valid JSON.\n\nIMPORTANT: Preserve the exact original order of job roles. Do not reorder, move, or rearrange any job entry.'
+              : 'Rewrite all experience bullets using the what/how/so-what structure, ordered by JD relevance. Return only valid JSON.'),
+          ],
+        }),
+      ]);
+
+      if (headersRaw.status === 'rejected') {
+        console.error('[Call 1 / headers] Error:', headersRaw.reason?.message);
+        emit(res, 'error', { message: 'Failed to optimize resume header. Please try again.' });
+        return res.end();
+      }
+      if (experienceRaw.status === 'rejected') {
+        console.error('[Call 2 / experience] Error:', experienceRaw.reason?.message);
+        emit(res, 'error', { message: 'Failed to optimize experience bullets. Please try again.' });
+        return res.end();
+      }
+      try {
+        headers = safeParseJSON(headersRaw.value);
+        if (Array.isArray(headers.contact)) headers.contact = headers.contact.join('');
+        if (typeof headers.contact !== 'string') headers.contact = String(headers.contact || '');
+      } catch (err) {
+        console.error('[Call 1 / headers] Parse error:', err.message);
+        emit(res, 'error', { message: 'Could not parse header response. Please try again.' });
+        return res.end();
+      }
+      try {
+        experienceData = safeParseJSON(experienceRaw.value).experience || [];
+      } catch (err) {
+        console.error('[Call 2 / experience] Parse error:', err.message);
+        emit(res, 'error', { message: 'Could not parse experience response. Please try again.' });
+        return res.end();
+      }
+      preservedSections = normalisePreservedSections(headers.preservedSections);
+      if (preservedSections.length > 0) {
+        console.log(`  preservedSections (chrono/hybrid): ${preservedSections.length} section(s) — ${preservedSections.map(s => s.type).join(', ')}`);
+      }
     }
 
     emit(res, 'step', { step: 4, status: 'complete' });
@@ -335,7 +411,14 @@ router.post('/optimize', async (req, res) => {
     // Non-streaming calls that generate 3 500+ tokens take 60–90 s of idle wait,
     // which triggers a server-side connection close ("socket hang up").
     // Streaming sends each token as generated — socket stays active throughout.
-    const optimisedText = assembleOptimisedResumeText(headers, experienceData);
+    let optimisedText;
+    try {
+      optimisedText = assembleOptimisedResumeText(headers, experienceData, preservedSections);
+    } catch (err) {
+      console.error('[assembleOptimisedResumeText] Error:', err.message);
+      emit(res, 'error', { message: 'Failed to assemble optimized resume text. Please try again.' });
+      return res.end();
+    }
     emit(res, 'step', { step: 6, status: 'active' });
 
     let analysis;
@@ -360,12 +443,13 @@ router.post('/optimize', async (req, res) => {
     // ── Calls 4 + 5 in parallel (1 Sonnet + 1 Haiku — safe concurrency) ─────
     emit(res, 'step', { step: 7, status: 'active' });
     const [clResult, atsResult] = await Promise.allSettled([
-      // Call 4: Cover letter (Sonnet)
+      // Call 4: Cover letter (Sonnet) — uses optimisedText so the letter matches the
+      // tailored resume, not the original. optimisedText is assembled before this block.
       callClaude({
         model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.COVER_LETTER, label: 'Call 4 / cover-letter',
         contentBlocks: [
           jdBlock(jobDescription),
-          instrBlock(`RESUME:\n---\n${fullResumeText}\n---\n\nDraft a cover letter following the system prompt instructions. Return plain text only.`),
+          instrBlock(`RESUME:\n---\n${optimisedText}\n---\n\nDraft a cover letter following the system prompt instructions. Return plain text only.`),
         ],
       }),
       // Call 5: ATS Preview (Haiku — cheaper, different model, safe to parallelise)
@@ -378,8 +462,19 @@ router.post('/optimize', async (req, res) => {
       }),
     ]);
 
-    const coverLetter = clResult.status  === 'fulfilled' ? clResult.value  : null;
-    const atsPreview  = atsResult.status === 'fulfilled' ? safeParseJSON(atsResult.value) : null;
+    const coverLetter = clResult.status === 'fulfilled' ? clResult.value : null;
+    // Parse ATS preview — guard against truncated JSON that safeParseJSON recovers as an array
+    // instead of the expected object (happens when max_tokens is tight on long resumes).
+    let atsPreview = null;
+    if (atsResult.status === 'fulfilled') {
+      try {
+        const parsed = safeParseJSON(atsResult.value);
+        atsPreview = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : null;
+        if (!atsPreview) console.warn('[ats-preview] Parsed value was not an object — discarding:', typeof parsed);
+      } catch (e) {
+        console.error('[ats-preview] JSON parse failed — atsPreview will be null:', e.message);
+      }
+    }
     emit(res, 'step', { step: 7, status: 'complete' });
 
     console.log(' Pipeline complete ✓\n');
@@ -387,6 +482,7 @@ router.post('/optimize', async (req, res) => {
     emit(res, 'result', {
       headers,
       experience:        experienceData,
+      preservedSections,
       analysis,
       coverLetter,
       atsPreview,
@@ -407,7 +503,7 @@ router.post('/optimize', async (req, res) => {
 // Documents are generated in memory and returned as base64 strings.
 // No filesystem writes — works on ephemeral platforms like Railway and Vercel.
 router.post('/export', async (req, res) => {
-  const { headers, experience, analysis, atsPreview, companyName, jobTitle, sectionsWereAdded, coverLetter } = req.body;
+  const { headers, experience, analysis, atsPreview, companyName, jobTitle, sectionsWereAdded, coverLetter, preservedSections } = req.body;
   try {
     const payload = {};
 
@@ -421,7 +517,7 @@ router.post('/export', async (req, res) => {
 
       headers && typeof headers === 'object' && (async () => {
         const fn  = buildFileName(companyName, jobTitle, 'Resume');
-        const buf = await generateResumeDocx(headers, experience);
+        const buf = await generateResumeDocx(headers, experience, {}, normalisePreservedSections(preservedSections));
         payload.resumeData     = buf.toString('base64');
         payload.resumeFileName = fn;
       })(),
@@ -451,13 +547,19 @@ router.post('/match-only', async (req, res) => {
   setupSSE(res);
 
   try {
+    // All three calls run in parallel:
+    //   • extractMeta (Haiku, ~2 s) — step 1; result only needed for the final emit
+    //   • analysis    (Sonnet streaming, 30–60 s) — step 2
+    //   • atsPreview  (Haiku, ~5 s) — runs alongside analysis
+    // extractMeta resolves first and marks step 1 complete via its .then callback.
     emit(res, 'step', { step: 1, status: 'active' });
-    const { companyName, jobTitle } = await extractMeta(resumeText, jobDescription, 'match-only/meta');
-    emit(res, 'step', { step: 1, status: 'complete' });
-
     emit(res, 'step', { step: 2, status: 'active' });
-    // Run Sonnet analysis + Haiku ATS preview in parallel — same pattern as optimize Calls 4+5
-    const [analysisResult, atsResult] = await Promise.allSettled([
+
+    const [metaResult, analysisResult, atsResult] = await Promise.allSettled([
+      extractMeta(resumeText, jobDescription, 'match-only/meta').then(meta => {
+        emit(res, 'step', { step: 1, status: 'complete' });
+        return meta;
+      }),
       callClaudeStreaming({
         model: SONNET, systemPrompt: MATCH_ANALYSIS_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.ANALYSIS, label: 'match-only/analysis',
         contentBlocks: [
@@ -475,6 +577,10 @@ router.post('/match-only', async (req, res) => {
         ],
       }),
     ]);
+
+    // extractMeta never rejects (internal try-catch returns Unknown_* on failure)
+    const { companyName, jobTitle } = metaResult.value;
+
     if (analysisResult.status === 'rejected') {
       const r = analysisResult.reason;
       console.error('[match-only/analysis]', r?.constructor?.name, r?.message,
@@ -489,7 +595,15 @@ router.post('/match-only', async (req, res) => {
       emit(res, 'error', { message: 'Could not parse match analysis. Please try again.' });
       return res.end();
     }
-    atsPreview = atsResult.status === 'fulfilled' ? safeParseJSON(atsResult.value) : null;
+    if (atsResult.status === 'fulfilled') {
+      try {
+        const parsed = safeParseJSON(atsResult.value);
+        atsPreview = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : null;
+        if (!atsPreview) console.warn('[match-only/ats-preview] Parsed value was not an object — discarding:', typeof parsed);
+      } catch (e) {
+        console.error('[match-only/ats-preview] JSON parse failed — atsPreview will be null:', e.message);
+      }
+    }
     emit(res, 'step', { step: 2, status: 'complete' });
     emit(res, 'step', { step: 3, status: 'complete' });
     emit(res, 'result', { analysis, atsPreview, companyName, jobTitle, sectionsWereAdded: false });
@@ -511,25 +625,36 @@ router.post('/cover-letter', async (req, res) => {
   setupSSE(res);
 
   try {
+    // extractMeta (Haiku, ~2 s) and the cover letter draft (Sonnet, ~8 s) run
+    // in parallel — meta result is only needed for the final emit.
+    // extractMeta marks step 1 complete via its .then callback as soon as it resolves.
     emit(res, 'step', { step: 1, status: 'active' });
-    const { companyName, jobTitle } = await extractMeta(resumeText, jobDescription, 'cover-letter/meta');
-    emit(res, 'step', { step: 1, status: 'complete' });
-
     emit(res, 'step', { step: 2, status: 'active' });
-    let coverLetter;
-    try {
-      coverLetter = await callClaude({
+
+    const [metaResult, clResult] = await Promise.allSettled([
+      extractMeta(resumeText, jobDescription, 'cover-letter/meta').then(meta => {
+        emit(res, 'step', { step: 1, status: 'complete' });
+        return meta;
+      }),
+      callClaude({
         model: SONNET, systemPrompt: COVER_LETTER_SYSTEM_PROMPT, maxTokens: MAX_TOKENS.COVER_LETTER, label: 'cover-letter/draft',
         contentBlocks: [
           jdBlock(jobDescription),
           resumeBlock(resumeText),
           instrBlock('Draft a cover letter following the system prompt instructions. Return plain text only.'),
         ],
-      });
-    } catch {
+      }),
+    ]);
+
+    if (clResult.status === 'rejected') {
       emit(res, 'error', { message: 'Failed to draft cover letter. Please try again.' });
       return res.end();
     }
+
+    // extractMeta never rejects (internal try-catch returns Unknown_* on failure)
+    const { companyName, jobTitle } = metaResult.value;
+    const coverLetter = clResult.value;
+
     emit(res, 'step', { step: 2, status: 'complete' });
     emit(res, 'step', { step: 3, status: 'complete' });
     emit(res, 'result', { coverLetter, companyName, jobTitle });

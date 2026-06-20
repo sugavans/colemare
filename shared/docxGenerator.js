@@ -94,9 +94,87 @@ function normaliseSectionName(raw) {
   return SECTION_NAME_MAP[key] || raw.toUpperCase();
 }
 
+// ─── Helper: render a preserved section into docx children ───────────────────
+// Returns a non-empty display name for a preserved section.
+// Falls back to a type-appropriate label when the AI returns null / empty.
+function preservedSectionName(section) {
+  if (section.name && section.name.trim()) return section.name.trim();
+  switch (section.type) {
+    case 'bullets':             return 'Accomplishments';
+    case 'verbatim':            return 'Recommendations';
+    case 'functional_clusters': return 'Work Experience';
+    case 'text':
+    default:                    return 'Additional Information';
+  }
+}
+
+function renderPreservedSection(section, children) {
+  if (!section) return;
+  const sectionName = preservedSectionName(section);
+  switch (section.type) {
+    case 'bullets': {
+      children.push(...sectionHeading(sectionName));
+      for (const item of (Array.isArray(section.content) ? section.content : [])) {
+        children.push(bulletParagraph(stripEmDashes(item)));
+      }
+      break;
+    }
+    case 'text': {
+      children.push(...sectionHeading(sectionName));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: stripEmDashes(typeof section.content === 'string' ? section.content : ''), size: 20, font: 'Calibri', color: DARK_GREY })],
+        spacing: { after: 200, line: 276 },
+      }));
+      break;
+    }
+    case 'verbatim': {
+      children.push(...sectionHeading(sectionName));
+      for (const item of (Array.isArray(section.content) ? section.content : [section.content])) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: item || '', italics: true, size: 20, font: 'Calibri', color: DARK_GREY })],
+          spacing: { before: 80, after: 80 },
+          indent: { left: 360 },
+          border: { left: { style: BorderStyle.SINGLE, size: 8, color: NAVY, space: 8 } },
+        }));
+      }
+      break;
+    }
+    case 'functional_clusters': {
+      children.push(...sectionHeading('Work Experience'));
+      for (const cluster of (Array.isArray(section.content) ? section.content : [])) {
+        // Cluster heading (skill category name)
+        children.push(new Paragraph({
+          children: [new TextRun({ text: cluster.heading || '', bold: true, color: NAVY, size: 22, font: 'Calibri' })],
+          spacing: { before: 160, after: 40 },
+        }));
+        // Attribution line if present
+        if (cluster.attribution) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: cluster.attribution, italics: true, size: 20, font: 'Calibri', color: DARK_GREY })],
+            spacing: { after: 60 },
+          }));
+        }
+        // Bullets
+        for (const bullet of (cluster.bullets || [])) {
+          children.push(bulletParagraph(stripEmDashes(bullet)));
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 // ─── Generate Resume .docx ───────────────────────────────────────────────────
-export async function generateResumeDocx(headers, experience, addedSections = {}) {
+export async function generateResumeDocx(headers, experience, addedSections = {}, preservedSections = []) {
   const children = [];
+
+  // Normalise — AI occasionally returns {} or a string instead of []
+  const ps = Array.isArray(preservedSections) ? preservedSections : [];
+  const preExperience      = ps.filter(s => s.position === 'pre_experience');
+  const postExperience     = ps.filter(s => s.position === 'post_experience');
+  const functionalClusters = ps.find(s => s.position === 'experience' && s.type === 'functional_clusters');
 
   // ── Resume Header: Name → Contact line (incl. LinkedIn) → Job Title ─────────
   // Parse contact string: "Full Name | email | phone | location | linkedin"
@@ -152,21 +230,26 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
     );
   }
 
-  // ── Professional Summary
-  children.push(...sectionHeading('Professional Summary'));
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: headers.summary || '',
-          size: 20,
-          font: 'Calibri',
-          color: DARK_GREY,
-        }),
-      ],
-      spacing: { after: 200, line: 276 },
-    })
-  );
+  // ── Professional Summary — nullable for functional resumes without an opening statement
+  if (headers.summary) {
+    children.push(...sectionHeading('Professional Summary'));
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: headers.summary,
+            size: 20,
+            font: 'Calibri',
+            color: DARK_GREY,
+          }),
+        ],
+        spacing: { after: 200, line: 276 },
+      })
+    );
+  }
+
+  // ── Pre-experience preserved sections (e.g. Accomplishments)
+  for (const s of preExperience) renderPreservedSection(s, children);
 
   // ── Skills
   if (headers.skills?.length > 0) addListSection(children, 'Skills / Core Competencies', headers.skills);
@@ -174,8 +257,10 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
   // ── Tools
   if (headers.tools?.length > 0) addListSection(children, 'Tools & Technologies', headers.tools);
 
-  // ── Work Experience
-  if (experience && experience.length > 0) {
+  // ── Work Experience — functional clusters OR standard chronological jobs
+  if (functionalClusters) {
+    renderPreservedSection(functionalClusters, children);
+  } else if (experience && experience.length > 0) {
     children.push(...sectionHeading('Work Experience'));
 
     for (const job of experience) {
@@ -257,25 +342,11 @@ export async function generateResumeDocx(headers, experience, addedSections = {}
       for (const bullet of (job.bullets || [])) {
         children.push(bulletParagraph(bullet));
       }
-
-      // Impact bullet — italic star callout, indented, rendered below detail bullets
-      if (job.impactBullet) {
-        children.push(
-          new Paragraph({
-            children: [new TextRun({
-              text: `★  ${job.impactBullet}`,
-              italics: true,
-              size: 19,
-              font: 'Calibri',
-              color: NAVY,
-            })],
-            indent: { left: 360 },
-            spacing: { before: 60, after: 100 },
-          })
-        );
-      }
     }
   }
+
+  // ── Post-experience preserved sections (Leadership Principles, Recommendations, etc.)
+  for (const s of postExperience) renderPreservedSection(s, children);
 
   // ── Additional / User-Added Sections
   // Semicolons are the AI's item separator (per prompt rules: no em-dashes, use semicolons).

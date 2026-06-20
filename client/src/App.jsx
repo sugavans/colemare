@@ -146,10 +146,11 @@ export default function App() {
       });
       const data = await res.json();
       setScanData({ ...data, _resumeText: rt });
-      if (data.sectionsMissing?.length > 0) {
+      const isFunctional = data.resumeType === 'functional' || data.resumeType === 'hybrid';
+      if (data.sectionsMissing?.length > 0 || isFunctional) {
         setScreen(SCREEN.SECTION_REVIEW);
       } else {
-        startOptimization(rt, jd, data.companyName, data.jobTitle, {});
+        startOptimization(rt, jd, data.companyName, data.jobTitle, {}, false, data.resumeType || 'chronological');
       }
     } catch {
       const fallback = {
@@ -158,21 +159,24 @@ export default function App() {
         fallback: true, _resumeText: rt,
       };
       setScanData(fallback);
-      startOptimization(rt, jd, fallback.companyName, fallback.jobTitle, {});
+      startOptimization(rt, jd, fallback.companyName, fallback.jobTitle, {}, false, 'chronological');
     }
   }, []);
 
-  const handleSectionReviewComplete = useCallback((additions) => {
+  const handleSectionReviewComplete = useCallback((additions, opts = {}) => {
+    const preserveJobOrder = opts.preserveJobOrder ?? false;
     setSectionAdditions(additions || {});
     startOptimization(
       resumeText, jobDescription,
-      scanData?.companyName || 'Unknown_Company',
-      scanData?.jobTitle    || 'Unknown_Role',
+      scanData?.companyName  || 'Unknown_Company',
+      scanData?.jobTitle     || 'Unknown_Role',
       additions || {},
+      preserveJobOrder,
+      scanData?.resumeType   || 'chronological',
     );
   }, [resumeText, jobDescription, scanData]);
 
-  const startOptimization = useCallback(async (rt, jd, companyName, jobTitle, additions) => {
+  const startOptimization = useCallback(async (rt, jd, companyName, jobTitle, additions, preserveJobOrder = false, resumeType = 'chronological') => {
     beginProcessing('optimize');
     // Steps 1 (scan) and 2 (section review) completed before SSE starts
     setSteps(prev => ({ ...prev, 1: 'complete', 2: 'complete' }));
@@ -180,19 +184,20 @@ export default function App() {
     try {
       await readSSE(
         `${API_BASE}/api/optimize`,
-        { resumeText: rt, jobDescription: jd, companyName, jobTitle, sectionAdditions: additions },
+        { resumeText: rt, jobDescription: jd, companyName, jobTitle, sectionAdditions: additions, preserveJobOrder, resumeType },
         async (event) => {
           if (event.type === 'step') {
             setStep(event.step, event.status);
           } else if (event.type === 'result') {
             await runExport({
-              headers:          event.headers,
-              experience:       event.experience,
-              analysis:         event.analysis,
-              atsPreview:       event.atsPreview,
-              coverLetter:      event.coverLetter,
-              companyName:      event.companyName,
-              jobTitle:         event.jobTitle,
+              headers:           event.headers,
+              experience:        event.experience,
+              preservedSections: event.preservedSections,
+              analysis:          event.analysis,
+              atsPreview:        event.atsPreview,
+              coverLetter:       event.coverLetter,
+              companyName:       event.companyName,
+              jobTitle:          event.jobTitle,
               sectionsWereAdded: event.sectionsWereAdded,
             });
             window.posthog?.capture('optimize_completed', { mode: 'optimize', overallScore: event.analysis?.overallScore ?? null });
